@@ -1,6 +1,6 @@
 package main
 
-import "gitlab.com/neuland-homeland/honeypot/honeypot"
+import "gitlab.com/neuland-homeland/honeypot/packages/honeypot"
 
 func main() {
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
