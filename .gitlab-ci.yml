@@ -2,9 +2,9 @@ image: golang:1.20
 
 stages:
   - test
+  - build
+  - scan
   - publish
-  - backup
-  - deploy
 
 gitguardianscan:
     image: gitguardian/ggshield:v1.13.5@sha256:82b46a5ebda17645a8aabd3d20cfb65cd65938db4fb6d31275bc91132ff21472
@@ -16,9 +16,8 @@ gitguardianscan:
 
 .docker:build:
   stage: build
-  needs: [jest, gitguardianscan]
+  needs: [gitguardianscan]
   dependencies:
-      - jest
       - gitguardianscan
   image:
       name: gcr.io/kaniko-project/executor:v1.9.1-debug@sha256:ac169723b2076f9d5804f4bc05c98397e286da6fdcdd5a09fdc179f06ccb3be1
