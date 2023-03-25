@@ -31,6 +31,7 @@ func (s *sshHoneypot) Start() error {
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			// always return an error - just log the username and password
 			s.setChan <- set.Token{
+				SUB: c.RemoteAddr().String(),
 				ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/ssh",
 				IAT: time.Now().Unix(),
 				JTI: uuid.New().String(),
@@ -39,7 +40,6 @@ func (s *sshHoneypot) Start() error {
 					"https://gitlab.com/neuland-homeland/honeypot/json-schema/ssh-login-attempt.json": {
 						"username": c.User(),
 						"password": string(pass),
-						"ip":       c.RemoteAddr(),
 					},
 				},
 			}
@@ -95,7 +95,7 @@ func (s *sshHoneypot) GetPort() int {
 }
 
 func (s *sshHoneypot) GetSETChannel() <-chan set.Token {
-	return nil
+	return s.setChan
 }
 
 func generatePrivateKey() *rsa.PrivateKey {
