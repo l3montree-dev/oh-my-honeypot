@@ -18,6 +18,25 @@ func main() {
 		panic(err)
 	}
 
+	portHoneypot := honeypot.NewHttpPort([]int{
+		80,
+		443,
+		8001, // kubernetes dashboard default port
+		8080,
+		6443,  // kubernetes api server
+		2379,  // etcd
+		2380,  // etcd
+		10250, // kubelet
+		10251, // kube-scheduler
+		10252, // kube-controller-manager
+		10255, // kube-proxy
+	})
+
+	err = portHoneypot.Start()
+	if err != nil {
+		panic(err)
+	}
+
 	// create a new websocket transport
 	websocket := transport.NewWebsocket(transport.WebsocketConfig{
 		Port: 1111,
@@ -26,11 +45,12 @@ func main() {
 		Port:  1112,
 		Store: store.NewLIFO[set.Token](1000),
 	})
+
 	websocketChan := websocket.Listen()
 	httpChan := httpTransport.Listen()
 
 	// listen for SET events
-	setChannel := sshHoneypot.GetSETChannel()
+	setChannel := pipeline.Merge(sshHoneypot.GetSETChannel(), portHoneypot.GetSETChannel())
 
 	pipeline.Broadcast(setChannel, websocketChan, httpChan)
 	forever := make(chan bool)
