@@ -25,21 +25,12 @@
             "examples": [
                 "root-pw"
             ]
-        },
-        "ipAddress": {
-            "type": "string",
-            "default": "",
-            "title": "The ipAddress Schema",
-            "examples": [
-                "127.0.0.1"
-            ]
         }
     },
     "examples": [
         {
             "username": "root",
-            "password": "root-pw",
-            "ipAddress": "127.0.0.1"
+            "password": "root-pw"
         }
     ]
 }
