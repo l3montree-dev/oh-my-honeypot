@@ -16,10 +16,11 @@ func BinarySearch[T Comparable[T]](a []T, x T) int {
 	start, mid, end := 0, 0, len(a)-1
 	for start <= end {
 		mid = (start + end) >> 1
+		el := a[mid]
 		switch {
-		case a[mid].Compare(x) > 0:
+		case el.Compare(x) > 0:
 			end = mid - 1
-		case a[mid].Compare(x) < 0:
+		case el.Compare(x) < 0:
 			start = mid + 1
 		default:
 			return mid

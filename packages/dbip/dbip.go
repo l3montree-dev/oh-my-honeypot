@@ -9,10 +9,15 @@ import (
 	"gitlab.com/neuland-homeland/honeypot/packages/utils"
 )
 
-func ip2int(ip net.IP) int64 {
-
+func IP2int(ip net.IP) int64 {
 	i := big.NewInt(0)
-	i.SetBytes(ip)
+	if ip.To4() == nil {
+		// ipv6
+		i.SetBytes(ip.To16())
+		return i.Int64()
+	}
+	i.SetBytes(ip.To4())
+
 	return i.Int64()
 }
 
@@ -37,7 +42,7 @@ type IpToCountry struct {
 func (i *IpToCountry) Lookup(ip net.IP) string {
 	// convert ip to uint32
 	// binary search the dataset for the entry
-	intRep := ip2int(ip)
+	intRep := IP2int(ip)
 	index := utils.BinarySearch(i.dataset, entry{start: intRep, end: intRep})
 	if index != -1 {
 		return i.dataset[index].country
@@ -45,8 +50,8 @@ func (i *IpToCountry) Lookup(ip net.IP) string {
 	return "UNKNOWN"
 }
 
-func readDBIPCountryFile() []entry {
-	csvFile, err := os.Open("dbip-country.csv")
+func readDBIPCountryFile(filename string) []entry {
+	csvFile, err := os.Open(filename)
 	if err != nil {
 		panic(err)
 	}
@@ -58,21 +63,25 @@ func readDBIPCountryFile() []entry {
 		if err != nil {
 			break
 		}
+		start := net.ParseIP(line[0])
+		if start == nil || start.To4() == nil {
+			continue
+		}
 		result = append(result, entry{
-			start:   ip2int(net.ParseIP(line[0])),
-			end:     ip2int(net.ParseIP(line[1])),
+			start:   IP2int(net.ParseIP(line[0])),
+			end:     IP2int(net.ParseIP(line[1])),
 			country: line[2],
 		})
 	}
 	return result
 }
 
-func NewIpToCountry() *IpToCountry {
+func NewIpToCountry(filename string) *IpToCountry {
 	// read the dbip country csv
 	// create a slice of entries
 	// sort the slice by start ip
 	// return the IpToCountry struct
 	return &IpToCountry{
-		dataset: readDBIPCountryFile(),
+		dataset: readDBIPCountryFile(filename),
 	}
 }
