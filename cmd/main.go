@@ -56,7 +56,7 @@ func main() {
 
 	httpChan := httpTransport.Listen()
 
-	dbIp := dbip.NewIpToCountry()
+	dbIp := dbip.NewIpToCountry("dbip-country.csv")
 
 	// listen for SET events
 	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), pipeline.Aggregate(tcpHoneypot.GetSETChannel(), time.Duration(2*time.Second), honeypot.DetectPortScan), udpHoneypot.GetSETChannel()), func(input set.Token) (set.Token, error) {
