@@ -1,6 +1,9 @@
 package pipeline
 
-import "log"
+import (
+	"log"
+	"time"
+)
 
 func Drain[T any](input <-chan T) {
 	go func() {
@@ -60,6 +63,34 @@ func Map[T any, R any](input <-chan T, transformFn func(input T) (R, error)) <-c
 				continue
 			}
 			output <- tmp
+		}
+	}()
+	return output
+}
+
+func Aggregate[T any](input <-chan T, aggregateTime time.Duration, aggregateFn func(acc []T) []T) <-chan T {
+	output := make(chan T)
+	go func() {
+		buffer := make([]T, 0)
+		trigger := time.NewTicker(aggregateTime)
+		for {
+			select {
+			case msg := <-input:
+				buffer = append(buffer, msg)
+				if trigger == nil {
+					// set a new trigger
+					trigger = time.NewTicker(aggregateTime)
+					continue
+				}
+			case <-trigger.C:
+				tmp := aggregateFn(buffer)
+
+				for _, m := range tmp {
+					output <- m
+				}
+				buffer = make([]T, 0)
+
+			}
 		}
 	}()
 	return output

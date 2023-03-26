@@ -31,7 +31,7 @@ func (h *httpTransport) Listen() chan<- set.Token {
 		}
 	}()
 
-	http.Handle("/messages", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			msgs := h.store.Get()
 			arr, err := json.Marshal(msgs)
