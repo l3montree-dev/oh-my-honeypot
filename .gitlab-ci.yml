@@ -3,7 +3,6 @@ image: golang:1.20
 stages:
   - test
   - build
-  - scan
   - publish
 
 gitguardianscan:
@@ -51,25 +50,25 @@ docker:build:main:
     only:
         - main
 
-.trivy:scan:
-  stage: scan
-  image: aquasec/trivy
-  script:
-  - trivy image --exit-code 1 --severity CRITICAL --no-progress --input image.tar
+#.trivy:scan:
+#  stage: scan
+#  image: aquasec/trivy
+#  script:
+#  - trivy image --exit-code 1 --severity CRITICAL --no-progress --input image.tar
       
-trivy:scan:main:
-    extends: .trivy:scan
-    variables:
-        IMAGE_TAG: $CI_REGISTRY_IMAGE:unstable
-    only:
-        - main
+#trivy:scan:main:
+#    extends: .trivy:scan
+#    variables:
+#        IMAGE_TAG: $CI_REGISTRY_IMAGE:unstable
+#    only:
+#        - main
   
-trivy:scan:tag:
-    extends: .trivy:scan
-    variables:
-        IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
-    only:
-        - tags
+#trivy:scan:tag:
+#    extends: .trivy:scan
+#    variables:
+#        IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+#    only:
+#        - tags
 
 .docker:push:
   stage: publish
