@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"gitlab.com/neuland-homeland/honeypot/packages/set"
+	"gitlab.com/neuland-homeland/honeypot/packages/utils"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -30,8 +31,9 @@ func (s *sshHoneypot) Start() error {
 		//Define a function to run when a client attempts a password login
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			// always return an error - just log the username and password
+			sub, _ := utils.NetAddrToIpStr(c.RemoteAddr())
 			s.setChan <- set.Token{
-				SUB: c.RemoteAddr().String(),
+				SUB: sub,
 				ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/ssh",
 				IAT: time.Now().Unix(),
 				JTI: uuid.New().String(),

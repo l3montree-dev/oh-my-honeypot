@@ -1,14 +1,18 @@
 package set
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"net"
+)
 
 // Security Event Token
 // Proposed by the IETF in RFC 8417
 type Token struct {
 	// Subject
 	// always an ip address
-	SUB string `json:"sub"`
-	ISS string `json:"iss"`
+	SUB     string `json:"sub"`
+	COUNTRY string `json:"subCountry"`
+	ISS     string `json:"iss"`
 	// The time at which the event occurred.
 	IAT int64 `json:"iat"`
 	// id of the set
@@ -23,4 +27,14 @@ type Token struct {
 
 func Marshal(t Token) ([]byte, error) {
 	return json.Marshal(t)
+}
+
+func ParseSubToIp(sub string) (net.IP, error) {
+	ip, _, err := net.SplitHostPort(sub)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return net.ParseIP(ip), nil
 }
