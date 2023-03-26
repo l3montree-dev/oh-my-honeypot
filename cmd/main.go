@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"os"
 	"time"
 
 	"gitlab.com/neuland-homeland/honeypot/packages/dbip"
@@ -35,9 +36,22 @@ func main() {
 		panic(err)
 	}
 
+	lifoStore := store.NewLIFO[set.Token](1000)
+	// create a file decorator to persist the data
+	file, err := os.OpenFile("events.log", os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	fileStore := store.NewFileDecorator[set.Token](
+		file,
+		store.NewJSONSerializer[set.Token](),
+		lifoStore,
+	)
+
 	httpTransport := transport.NewHTTP(transport.HTTPConfig{
 		Port:  1112,
-		Store: store.NewLIFO[set.Token](1000),
+		Store: fileStore,
 	})
 
 	httpChan := httpTransport.Listen()
