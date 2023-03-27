@@ -21,42 +21,49 @@ func IP2int(ip net.IP) int64 {
 	return i.Int64()
 }
 
-type entry struct {
-	start   int64
-	end     int64
-	country string
+type IPRange struct {
+	Start   int64
+	End     int64
+	Country string
 }
 
-func (e entry) Compare(other entry) int {
-	if e.start >= other.start && e.start <= other.end || e.end >= other.start && e.end <= other.end {
-		// either this entry is inside the other entry or the other entry is inside this entry
+func (e IPRange) Compare(other IPRange) int {
+	if other.Start >= e.Start && other.End <= e.End {
+		// either this Entry is inside the other Entry or the other Entry is inside this Entry
 		return 0
 	}
-	return int(e.start - other.start)
+	return int(e.Start - other.Start)
 }
 
 type IpToCountry struct {
-	dataset []entry
+	dataset []IPRange
 }
 
 func (i *IpToCountry) Lookup(ip net.IP) string {
 	// convert ip to uint32
-	// binary search the dataset for the entry
+	// binary search the dataset for the Entry
 	intRep := IP2int(ip)
-	index := utils.BinarySearch(i.dataset, entry{start: intRep, end: intRep})
+	/*for _, Entry := range i.dataset {
+		if intRep >= Entry.start && intRep <= Entry.end {
+			log.Println(i)
+			return Entry.country
+		}
+	}*/
+
+	index := utils.BinarySearch(i.dataset, IPRange{Start: intRep, End: intRep})
 	if index != -1 {
-		return i.dataset[index].country
+		return i.dataset[index].Country
 	}
 	return "UNKNOWN"
 }
 
-func readDBIPCountryFile(filename string) []entry {
+func readDBIPCountryFile(filename string) []IPRange {
 	csvFile, err := os.Open(filename)
 	if err != nil {
 		panic(err)
 	}
 	defer csvFile.Close()
-	result := make([]entry, 0)
+	result := make([]IPRange, 0)
 	reader := csv.NewReader(csvFile)
 	for {
 		line, err := reader.Read()
@@ -67,10 +74,10 @@ func readDBIPCountryFile(filename string) []entry {
 		if start == nil || start.To4() == nil {
 			continue
 		}
-		result = append(result, entry{
-			start:   IP2int(net.ParseIP(line[0])),
-			end:     IP2int(net.ParseIP(line[1])),
-			country: line[2],
+		result = append(result, IPRange{
+			Start:   IP2int(net.ParseIP(line[0])),
+			End:     IP2int(net.ParseIP(line[1])),
+			Country: line[2],
 		})
 	}
 	return result
