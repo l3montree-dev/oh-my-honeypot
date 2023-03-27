@@ -39,7 +39,7 @@ func (s *sshHoneypot) Start() error {
 				JTI: uuid.New().String(),
 				TOE: time.Now().Unix(),
 				Events: map[string]map[string]interface{}{
-					"https://gitlab.com/neuland-homeland/honeypot/json-schema/ssh-login-attempt.json": {
+					SSHEventID: {
 						"username": c.User(),
 						"password": string(pass),
 					},

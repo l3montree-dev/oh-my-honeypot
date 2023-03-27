@@ -50,11 +50,15 @@ func main() {
 	)
 
 	httpTransport := transport.NewHTTP(transport.HTTPConfig{
-		Port:  1112,
+		Port: 1112,
+		// initializes the http transport with the lifo store
 		Store: fileStore,
 	})
-
+	socketioTransport := transport.NewSocketIO(transport.SocketIOConfig{
+		Port: 1113,
+	})
 	httpChan := httpTransport.Listen()
+	socketioChan := socketioTransport.Listen()
 
 	dbIp := dbip.NewIpToCountry("dbip-country.csv")
 
@@ -64,7 +68,7 @@ func main() {
 		return input, nil
 	})
 
-	pipeline.Broadcast(setChannel, httpChan)
+	pipeline.Broadcast(setChannel, httpChan, socketioChan)
 	forever := make(chan bool)
 	<-forever
 }

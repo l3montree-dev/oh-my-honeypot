@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
+	"gitlab.com/neuland-homeland/honeypot/packages/honeypot"
 	"gitlab.com/neuland-homeland/honeypot/packages/set"
 	"gitlab.com/neuland-homeland/honeypot/packages/store"
 )
@@ -18,6 +20,34 @@ type HTTPConfig struct {
 type httpTransport struct {
 	port  int
 	store store.Store[set.Token]
+}
+
+func getPort(token set.Token) int {
+	if token.Events[honeypot.SSHEventID] != nil {
+		return 22
+	} else if token.Events[honeypot.PortEventID] != nil {
+		port, err := strconv.Atoi(token.Events[honeypot.PortEventID]["port"].(string))
+		if err != nil {
+			return 0
+		}
+		return port
+	}
+	return 0
+}
+
+func marshalMsgs(r *http.Request, msgs []set.Token) ([]byte, error) {
+	if r.URL.Query().Get("format") == "csv" || r.Header.Get("Accept") == "text/csv" {
+		var csv string
+		for _, msg := range msgs {
+			csv += fmt.Sprintf("%d,%s,%s,%d\n", msg.TOE, msg.SUB, msg.COUNTRY, getPort(msg))
+		}
+		return []byte(csv), nil
+	}
+	arr, err := json.Marshal(msgs)
+	if err != nil {
+		return nil, err
+	}
+	return arr, nil
 }
 
 func (h *httpTransport) Listen() chan<- set.Token {
@@ -36,7 +66,7 @@ func (h *httpTransport) Listen() chan<- set.Token {
 			// check if the request would like a json or a csv response - default is json
 			// but csv is much smaller
 			msgs := h.store.Get()
-			arr, err := json.Marshal(msgs)
+			arr, err := marshalMsgs(r, msgs)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return

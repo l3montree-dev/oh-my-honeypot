@@ -80,7 +80,7 @@ func (h *tcpHoneypot) Start() error {
 						JTI: uuid.New().String(),
 						TOE: time.Now().Unix(),
 						Events: map[string]map[string]interface{}{
-							"https://gitlab.com/neuland-homeland/honeypot/json-schema/port": {
+							PortEventID: {
 								"port": fmt.Sprintf("%d", port),
 							},
 						},
