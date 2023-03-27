@@ -12,6 +12,12 @@ gitguardianscan:
     rules:
         - if: '$CI_COMMIT_REF_PROTECTED == "true"'
 
+gotest:
+    stage: test
+    image: golang:1.20
+    script:
+        - go test -v ./...
+
 
 .docker:build:
   stage: build
