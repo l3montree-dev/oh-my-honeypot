@@ -3,6 +3,7 @@ package set
 import (
 	"encoding/json"
 	"net"
+	"time"
 )
 
 // Security Event Token
@@ -27,6 +28,10 @@ type Token struct {
 
 func Marshal(t Token) ([]byte, error) {
 	return json.Marshal(t)
+}
+
+func (t Token) GetIssuedAt() time.Time {
+	return time.Unix(t.IAT, 0)
 }
 
 func ParseSubToIp(sub string) (net.IP, error) {

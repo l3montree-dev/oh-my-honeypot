@@ -5,12 +5,16 @@ import (
 	"time"
 )
 
-type timedEntry[T any] struct {
+type Timed interface {
+	GetIssuedAt() time.Time
+}
+
+type timedEntry[T Timed] struct {
 	msg  T
 	time time.Time
 }
 
-type TimeLifo[T any] struct {
+type TimeLifo[T Timed] struct {
 	msgs     []timedEntry[T]
 	duration time.Duration
 	msgsLock sync.Mutex
@@ -19,7 +23,8 @@ type TimeLifo[T any] struct {
 func (l *TimeLifo[T]) Store(msg T) error {
 	l.msgsLock.Lock()
 	defer l.msgsLock.Unlock()
-	l.msgs = append(l.msgs, timedEntry[T]{msg, time.Now()})
+
+	l.msgs = append(l.msgs, timedEntry[T]{msg, msg.GetIssuedAt()})
 	return nil
 }
 
@@ -52,7 +57,7 @@ func (l *TimeLifo[T]) clean() {
 	}
 }
 
-func NewTimeLifo[T any](duration time.Duration) Store[T] {
+func NewTimeLifo[T Timed](duration time.Duration) Store[T] {
 	timeLifoStore := &TimeLifo[T]{
 		msgs:     make([]timedEntry[T], 0),
 		duration: duration,
