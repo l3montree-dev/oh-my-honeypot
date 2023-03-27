@@ -33,6 +33,8 @@ func (h *httpTransport) Listen() chan<- set.Token {
 
 	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
+			// check if the request would like a json or a csv response - default is json
+			// but csv is much smaller
 			msgs := h.store.Get()
 			arr, err := json.Marshal(msgs)
 			if err != nil {
