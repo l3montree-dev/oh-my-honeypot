@@ -21,9 +21,6 @@ gotest:
 
 .docker:build:
   stage: build
-  needs: [gitguardianscan]
-  dependencies:
-      - gitguardianscan
   image:
       name: gcr.io/kaniko-project/executor:v1.9.1-debug@sha256:ac169723b2076f9d5804f4bc05c98397e286da6fdcdd5a09fdc179f06ccb3be1
       entrypoint: [""]
@@ -78,6 +75,10 @@ docker:build:main:
 
 .docker:push:
   stage: publish
+  needs: [gitguardianscan, gotest]
+  dependencies:
+      - gitguardianscan
+      - gotest
   image:
     name: gcr.io/go-containerregistry/crane:debug
     entrypoint: [""]
