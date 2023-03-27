@@ -36,7 +36,7 @@ func main() {
 		panic(err)
 	}
 
-	lifoStore := store.NewLIFO[set.Token](1000)
+	lifoStore := store.NewTimeLifo[set.Token](time.Duration(24 * time.Hour))
 	// create a file decorator to persist the data
 	file, err := os.OpenFile("events.log", os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
