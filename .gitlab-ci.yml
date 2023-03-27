@@ -21,6 +21,8 @@ gotest:
 
 .docker:build:
   stage: build
+  needs: []
+  dependencies: []
   image:
       name: gcr.io/kaniko-project/executor:v1.9.1-debug@sha256:ac169723b2076f9d5804f4bc05c98397e286da6fdcdd5a09fdc179f06ccb3be1
       entrypoint: [""]
