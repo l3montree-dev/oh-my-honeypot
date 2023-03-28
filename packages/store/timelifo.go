@@ -49,9 +49,10 @@ func (l *TimeLifo[T]) clean() {
 	defer l.msgsLock.Unlock()
 
 	now := time.Now()
+
 	for i, msg := range l.msgs {
 		if now.Sub(msg.time) > l.duration {
-			l.msgs = l.msgs[i:]
+			l.msgs = l.msgs[:i]
 			break
 		}
 	}
