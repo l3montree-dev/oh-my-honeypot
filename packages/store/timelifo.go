@@ -1,9 +1,16 @@
 package store
 
 import (
+	"log"
 	"sync"
 	"time"
 )
+
+func reverse[S ~[]E, E any](s S) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
 
 type Timed interface {
 	GetIssuedAt() time.Time
@@ -51,9 +58,11 @@ func (l *TimeLifo[T]) clean() {
 	now := time.Now()
 
 	for i, msg := range l.msgs {
-		if now.Sub(msg.time) > l.duration {
-			l.msgs = l.msgs[:i]
-			break
+		if now.Sub(msg.time) < l.duration {
+			// delete everything before i
+			l.msgs = l.msgs[i:]
+			log.Printf("cleaned %d messages from timeLifo", i-1)
+			return
 		}
 	}
 }
