@@ -2,7 +2,7 @@ package honeypot
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"time"
 
@@ -33,12 +33,12 @@ func (h *udpHoneypot) Start() error {
 			// create a new tcp listener on the port
 			connection, err := net.ListenPacket("udp", fmt.Sprintf(":%d", port))
 			if err != nil {
-				log.Println("Error creating UDP listener on port", port, err)
+				slog.Error("error creating UDP listener", "port", port, "err", err)
 				return
 			}
 			defer connection.Close()
 
-			log.Println("Starting UDP honeypot on port", port)
+			slog.Info("started UDP honeypot", "port", port)
 
 			for {
 				buffer := make([]byte, 1024)
