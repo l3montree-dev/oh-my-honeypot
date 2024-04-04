@@ -1,7 +1,7 @@
 package store
 
 import (
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -61,7 +61,7 @@ func (l *TimeLifo[T]) clean() {
 		if now.Sub(msg.time) < l.duration {
 			// delete everything before i
 			l.msgs = l.msgs[i:]
-			log.Printf("cleaned %d messages from timeLifo", i-1)
+			slog.Info("cleaned messages from timeLifo", "amount", max(0, i-1))
 			return
 		}
 	}

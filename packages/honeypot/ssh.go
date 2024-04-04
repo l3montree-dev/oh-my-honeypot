@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"time"
 
@@ -45,7 +46,7 @@ func (s *sshHoneypot) Start() error {
 					},
 				},
 			}
-			log.Println("Login attempt:", c.User(), string(pass), c.RemoteAddr())
+			slog.Info("Login attempt", "user", c.User(), "pass", string(pass), "ip", c.RemoteAddr())
 			return nil, fmt.Errorf("password rejected for %q", c.User())
 		},
 	}
@@ -65,12 +66,12 @@ func (s *sshHoneypot) Start() error {
 	}
 
 	// Accept all connections
-	log.Printf("SSH Honeypot started on %d...", s.port)
+	slog.Info("SSH Honeypot started", "port", s.port)
 	go func() {
 		for {
 			tcpConn, err := listener.Accept()
 			if err != nil {
-				log.Printf("Failed to accept incoming connection (%s)", err)
+				slog.Error("failed to accept incoming connection", "err", err)
 				continue
 			}
 

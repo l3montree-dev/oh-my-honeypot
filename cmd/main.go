@@ -1,10 +1,12 @@
 package main
 
 import (
+	"log/slog"
 	"net"
 	"os"
 	"time"
 
+	"github.com/lmittmann/tint"
 	"gitlab.com/neuland-homeland/honeypot/packages/dbip"
 	"gitlab.com/neuland-homeland/honeypot/packages/honeypot"
 	"gitlab.com/neuland-homeland/honeypot/packages/pipeline"
@@ -13,7 +15,20 @@ import (
 	"gitlab.com/neuland-homeland/honeypot/packages/transport"
 )
 
+// InitLogger initializes the logger with a tint handler.
+// tint is a simple logging library that allows to add colors to the log output.
+// this is obviously not required, but it makes the logs easier to read.
+func InitLogger() {
+	loggingHandler := tint.NewHandler(os.Stdout, &tint.Options{
+		AddSource: true,
+		Level:     slog.LevelDebug,
+	})
+	logger := slog.New(loggingHandler)
+	slog.SetDefault(logger)
+}
+
 func main() {
+	InitLogger()
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
 		Port: 2022,
 	})
