@@ -1,0 +1,36 @@
+{
+    "$schema": "https://json-schema.org/draft/2019-09/schema",
+    "$id": "https://gitlab.com/neuland-homeland/honeypot/json-schema/ssh-login-attempt.json",
+    "type": "object",
+    "default": {},
+    "title": "Root Schema",
+    "required": [
+        "username",
+        "password",
+        "ipAddress"
+    ],
+    "properties": {
+        "username": {
+            "type": "string",
+            "default": "",
+            "title": "The username Schema",
+            "examples": [
+                "root"
+            ]
+        },
+        "password": {
+            "type": "string",
+            "default": "",
+            "title": "The password Schema",
+            "examples": [
+                "root-pw"
+            ]
+        }
+    },
+    "examples": [
+        {
+            "username": "root",
+            "password": "root-pw"
+        }
+    ]
+}
