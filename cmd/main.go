@@ -77,7 +77,7 @@ func main() {
 	socketioChan := socketioTransport.Listen()
 
 	dbIp := dbip.NewIpToCountry("dbip-country.csv")
-	dbChan := postgresqlDB.DBStore()
+	dbChan := postgresqlDB.Listen()
 
 	// listen for SET events
 	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), tcpHoneypot.GetSETChannel(), udpHoneypot.GetSETChannel()), func(input set.Token) (set.Token, error) {
