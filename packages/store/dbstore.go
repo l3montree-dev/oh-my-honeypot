@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -20,14 +21,16 @@ type PostgreSQL struct {
 	DB       *sql.DB
 }
 
-func (p *PostgreSQL) DBStore() chan<- set.Token {
+func (p *PostgreSQL) Listen() chan<- set.Token {
 	res := make(chan set.Token)
 	// listen to all tokens passed into the channel
 	go func() {
 		for input := range res {
-			p.PortScanningInsert(input)
+			go p.PortScanningInsert(input)
 		}
 	}()
+	slog.Info("PostgreSQL store successfully initialized")
+
 	return res
 }
 
@@ -35,13 +38,23 @@ func (p *PostgreSQL) PortScanningInsert(input set.Token) error {
 	timestamp := int64(input.TOE)
 	timeObj := time.Unix(timestamp, 0)
 	port := input.Events[honeypot.PortEventID]["port"]
-	log.Println(port)
 	_, err := p.DB.Exec(`
 			INSERT INTO port_scanning (TimeOfEvent,PortNr,IPAddress,Country)
 			VALUES ($1, $2, $3, $4);
 		`, timeObj, port, input.SUB, input.COUNTRY)
 	if err != nil {
 		log.Println("Error while storing on the DB", err)
+	}
+	if input.Events[honeypot.SSHEventID] != nil {
+		_, err = p.DB.Exec(`
+			INSERT INTO login_try (Username,Password)
+			VALUES ($1, $2);
+		`, input.Events[honeypot.SSHEventID]["username"], input.Events[honeypot.SSHEventID]["password"])
+
+		if err != nil {
+			log.Println("Error while storing on the DB", err)
+		}
+
 	}
 	return err
 }
