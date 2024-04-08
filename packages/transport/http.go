@@ -3,7 +3,7 @@ package transport
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -79,7 +79,7 @@ func (h *httpTransport) Listen() chan<- set.Token {
 	}))
 
 	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), nil)
-	log.Println("HTTP transport listening on port", h.port)
+	slog.Info("HTTP transport listening", "port", h.port)
 
 	return listener
 }

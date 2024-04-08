@@ -1,10 +1,12 @@
 module gitlab.com/neuland-homeland/honeypot
 
-go 1.20
+go 1.22
 
+toolchain go1.22.0
 require (
 	github.com/google/uuid v1.3.0
 	github.com/googollee/go-socket.io v1.7.0
+	github.com/lmittmann/tint v1.0.4
 	golang.org/x/crypto v0.7.0
 	golang.org/x/net v0.8.0
 )
