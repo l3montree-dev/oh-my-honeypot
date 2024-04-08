@@ -29,9 +29,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
-		Port: 2022,
+		Port: 22,
 	})
 
 	err = sshHoneypot.Start()
@@ -77,6 +76,8 @@ func main() {
 	socketioChan := socketioTransport.Listen()
 
 	dbIp := dbip.NewIpToCountry("dbip-country.csv")
+	//get the port of sshHoneypot and pass it to the dbStore
+
 	dbChan := postgresqlDB.Listen()
 
 	// listen for SET events
