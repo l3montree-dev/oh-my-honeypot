@@ -40,9 +40,10 @@ func (s *sshHoneypot) Start() error {
 				JTI: uuid.New().String(),
 				TOE: time.Now().Unix(),
 				Events: map[string]map[string]interface{}{
-					SSHEventID: {
+					LoginEventID: {
 						"username": c.User(),
 						"password": string(pass),
+						"port":     s.GetPort(),
 					},
 				},
 			}

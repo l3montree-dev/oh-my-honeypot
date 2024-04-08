@@ -26,37 +26,39 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 	// listen to all tokens passed into the channel
 	go func() {
 		for input := range res {
-			go p.PortScanningInsert(input)
+			go func() {
+				var port interface{}
+				timestamp := int64(input.TOE)
+				timeObj := time.Unix(timestamp, 0)
+				if input.Events[honeypot.LoginEventID] == nil {
+					port = input.Events[honeypot.PortEventID]["port"]
+				}
+				if input.Events[honeypot.PortEventID] == nil {
+					port = input.Events[honeypot.LoginEventID]["port"]
+				}
+				_, err := p.DB.Exec(`
+						INSERT INTO port_scanning (TimeOfEvent,PortNr,IPAddress,Country)
+						VALUES ($1, $2, $3, $4);
+					`, timeObj, port, input.SUB, input.COUNTRY)
+				if err != nil {
+					log.Println("Error while storing on the DB", err)
+				}
+				if input.Events[honeypot.LoginEventID] != nil {
+					_, err = p.DB.Exec(`
+						INSERT INTO login_try (Username,Password)
+						VALUES ($1, $2);
+					`, input.Events[honeypot.LoginEventID]["username"], input.Events[honeypot.LoginEventID]["password"])
+					if err != nil {
+						log.Println("Error while storing on the DB", err)
+					}
+
+				}
+
+			}()
 		}
 	}()
-	slog.Info("PostgreSQL store successfully initialized")
 
 	return res
-}
-
-func (p *PostgreSQL) PortScanningInsert(input set.Token) error {
-	timestamp := int64(input.TOE)
-	timeObj := time.Unix(timestamp, 0)
-	port := input.Events[honeypot.PortEventID]["port"]
-	_, err := p.DB.Exec(`
-			INSERT INTO port_scanning (TimeOfEvent,PortNr,IPAddress,Country)
-			VALUES ($1, $2, $3, $4);
-		`, timeObj, port, input.SUB, input.COUNTRY)
-	if err != nil {
-		log.Println("Error while storing on the DB", err)
-	}
-	if input.Events[honeypot.SSHEventID] != nil {
-		_, err = p.DB.Exec(`
-			INSERT INTO login_try (Username,Password)
-			VALUES ($1, $2);
-		`, input.Events[honeypot.SSHEventID]["username"], input.Events[honeypot.SSHEventID]["password"])
-
-		if err != nil {
-			log.Println("Error while storing on the DB", err)
-		}
-
-	}
-	return err
 }
 
 // Start initializes the PostgreSQL database connection.
@@ -69,16 +71,16 @@ func (p *PostgreSQL) Start() error {
 	if err != nil {
 		return err
 	}
-
 	// Verify that the connection to the database is working
 	err = db.Ping()
 	if err != nil {
-		log.Println("Error while storing on the DB", err)
+		log.Println("Error while connecting to the DB", err)
 		return err
 	}
 	// Set the database connection in the postgreSQL struct
 	p.DB = db
 	//Check if the table exists
+
 	go func() {
 		_, err := p.DB.Exec(`
 		CREATE TABLE IF NOT EXISTS port_scanning (
@@ -92,13 +94,13 @@ func (p *PostgreSQL) Start() error {
 		CREATE TABLE IF NOT EXISTS login_try (
 			Attack_ID SERIAL PRIMARY KEY,
 			Username TEXT,
-			Password TEXT,
-			FOREIGN KEY (Attack_ID) REFERENCES port_scanning(ID)
+			Password TEXT
 		);
 	`)
 		if err != nil {
 			log.Println("Error while creating tables", err)
 		}
+		slog.Info("PostgreSQL store started")
 	}()
 	return nil
 }

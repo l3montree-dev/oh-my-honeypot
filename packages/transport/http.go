@@ -23,7 +23,7 @@ type httpTransport struct {
 }
 
 func getPort(token set.Token) int {
-	if token.Events[honeypot.SSHEventID] != nil {
+	if token.Events[honeypot.LoginEventID] != nil {
 		return 22
 	} else if token.Events[honeypot.PortEventID] != nil {
 		port, err := strconv.Atoi(token.Events[honeypot.PortEventID]["port"].(string))
