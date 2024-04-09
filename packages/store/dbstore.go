@@ -27,31 +27,43 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 	go func() {
 		for input := range res {
 			go func() {
+				var attackType string
 				var port interface{}
 				timestamp := int64(input.TOE)
 				timeObj := time.Unix(timestamp, 0)
-				if input.Events[honeypot.LoginEventID] == nil {
-					port = input.Events[honeypot.PortEventID]["port"]
+				for _, event := range input.Events {
+					for key, value := range event {
+						if key == "port" {
+							port = fmt.Sprintf("%v", value)
+							break
+						}
+					}
+					if port != "" {
+						break
+					}
 				}
-				if input.Events[honeypot.PortEventID] == nil {
-					port = input.Events[honeypot.LoginEventID]["port"]
+				attackType = "Port Scanning"
+				if input.Events[honeypot.LoginEventID] != nil {
+					attackType = "Login Attempt"
 				}
 				_, err := p.DB.Exec(`
-						INSERT INTO port_scanning (TimeOfEvent,PortNr,IPAddress,Country)
-						VALUES ($1, $2, $3, $4);
-					`, timeObj, port, input.SUB, input.COUNTRY)
+				INSERT INTO attack_log (Attack_id, Time_Of_Event,Port_Nr,IP_Address,Country,Attack_Type)
+				VALUES ($1, $2, $3, $4,$5,$6);
+				`, input.JTI, timeObj, port, input.SUB, input.COUNTRY, attackType)
+
 				if err != nil {
 					log.Println("Error while storing on the DB", err)
 				}
+
 				if input.Events[honeypot.LoginEventID] != nil {
-					_, err = p.DB.Exec(`
-						INSERT INTO login_try (Username,Password)
-						VALUES ($1, $2);
-					`, input.Events[honeypot.LoginEventID]["username"], input.Events[honeypot.LoginEventID]["password"])
+					_, err := p.DB.Exec(`
+					INSERT INTO login_attempt (Attack_ID,Username,Password)
+					VALUES ($1, $2, $3)
+					`, input.JTI, input.Events[honeypot.LoginEventID]["username"], input.Events[honeypot.LoginEventID]["password"])
+
 					if err != nil {
 						log.Println("Error while storing on the DB", err)
 					}
-
 				}
 
 			}()
@@ -59,6 +71,42 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 	}()
 
 	return res
+}
+
+func (p *PostgreSQL) Insert(input set.Token) error {
+	return nil
+}
+
+func (p *PostgreSQL) GetAttackLogs() ([]map[string]interface{}, error) {
+	rows, err := p.DB.Query(`
+	SELECT * FROM attack_log;
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var logs []map[string]interface{}
+	for rows.Next() {
+		var attackID int
+		var timeOfEvent time.Time
+		var portNr int
+		var ipAddress string
+		var country string
+		var attackType string
+		err := rows.Scan(&attackID, &timeOfEvent, &portNr, &ipAddress, &country, &attackType)
+		if err != nil {
+			return nil, err
+		}
+		logs = append(logs, map[string]interface{}{
+			"Attack_ID":     attackID,
+			"Time_Of_Event": timeOfEvent,
+			"Port_Nr":       portNr,
+			"IP_Address":    ipAddress,
+			"Country":       country,
+			"Attack_Type":   attackType,
+		})
+	}
+	return logs, nil
 }
 
 // Start initializes the PostgreSQL database connection.
@@ -83,20 +131,21 @@ func (p *PostgreSQL) Start() error {
 
 	go func() {
 		_, err := p.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS port_scanning (
-			ID SERIAL PRIMARY KEY,
-			TimeOfEvent TIMESTAMP,
-			PortNr INT,
-			IPAddress TEXT,
+		CREATE TABLE IF NOT EXISTS attack_log (
+			Attack_ID TEXT PRIMARY KEY,
+			Time_Of_Event TIMESTAMP,
+			Port_Nr INT,
+			IP_Address TEXT,
 			Country TEXT,
-			AttackType TEXT
-		);
-		CREATE TABLE IF NOT EXISTS login_try (
-			Attack_ID SERIAL PRIMARY KEY,
+			Attack_Type TEXT
+			);
+		CREATE TABLE IF NOT EXISTS login_attempt (
+			Attack_ID TEXT PRIMARY KEY,
 			Username TEXT,
-			Password TEXT
-		);
-	`)
+			Password TEXT,
+			FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID) 
+			);
+			`)
 		if err != nil {
 			log.Println("Error while creating tables", err)
 		}

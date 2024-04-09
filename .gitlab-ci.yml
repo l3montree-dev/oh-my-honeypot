@@ -1,0 +1,109 @@
+image: golang:1.20
+
+stages:
+  - test
+  - build
+  - publish
+
+gitguardianscan:
+    image: gitguardian/ggshield:v1.13.5@sha256:82b46a5ebda17645a8aabd3d20cfb65cd65938db4fb6d31275bc91132ff21472
+    stage: test
+    script: ggshield secret scan ci
+    rules:
+        - if: '$CI_COMMIT_REF_PROTECTED == "true"'
+
+gotest:
+    stage: test
+    image: golang:1.20
+    script:
+        - go test -v ./...
+
+
+.docker:build:
+  stage: build
+  needs: []
+  dependencies: []
+  image:
+      name: gcr.io/kaniko-project/executor:v1.9.1-debug@sha256:ac169723b2076f9d5804f4bc05c98397e286da6fdcdd5a09fdc179f06ccb3be1
+      entrypoint: [""]
+  script:
+      - /kaniko/executor
+        --cleanup
+        --no-push
+        --context $CI_PROJECT_DIR
+        --dockerfile $CI_PROJECT_DIR/Dockerfile
+        --destination $IMAGE_TAG
+        --tarPath image.tar
+  artifacts:
+    paths:
+    - image.tar
+    when: on_success
+
+
+docker:build:tag:
+    extends: .docker:build
+    variables:
+        IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+    only:
+        - tags
+
+docker:build:main:
+    extends: .docker:build
+    variables:
+        IMAGE_TAG: $CI_REGISTRY_IMAGE:unstable
+        NEXT_PUBLIC_ENVIRONMENT: development
+    only:
+        - main
+
+#.trivy:scan:
+#  stage: scan
+#  image: aquasec/trivy
+#  script:
+#  - trivy image --exit-code 1 --severity CRITICAL --no-progress --input image.tar
+      
+#trivy:scan:main:
+#    extends: .trivy:scan
+#    variables:
+#        IMAGE_TAG: $CI_REGISTRY_IMAGE:unstable
+#    only:
+#        - main
+  
+#trivy:scan:tag:
+#    extends: .trivy:scan
+#    variables:
+#        IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+#    only:
+#        - tags
+
+.docker:push:
+  stage: publish
+  image:
+    name: gcr.io/go-containerregistry/crane:debug
+    entrypoint: [""]
+  script:
+  - crane auth login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  - crane push image.tar $IMAGE_TAG
+
+docker:push:tag:
+    extends: .docker:push
+    needs: [gitguardianscan, gotest, docker:build:tag]
+    dependencies:
+        - gitguardianscan
+        - gotest
+        - docker:build:tag
+    variables:
+        IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+    only:
+        - tags
+
+docker:push:main:
+    extends: .docker:push
+    needs: [gitguardianscan, gotest, docker:build:main]
+    dependencies:
+        - gitguardianscan
+        - gotest
+        - docker:build:main
+    variables:
+        IMAGE_TAG: $CI_REGISTRY_IMAGE:unstable
+    only:
+        - main
