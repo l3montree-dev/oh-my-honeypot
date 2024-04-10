@@ -90,10 +90,6 @@ func handeConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 	}
 }
 
-func (s *sshHoneypot) Stop() error {
-	return nil
-}
-
 func (s *sshHoneypot) GetPort() int {
 	return s.port
 }
