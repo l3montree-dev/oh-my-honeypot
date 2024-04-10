@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"time"
 
 	"github.com/lmittmann/tint"
 	"gitlab.com/neuland-homeland/honeypot/packages/dbip"
@@ -24,11 +23,24 @@ func main() {
 		Password: "123",
 		DBName:   "honeypot",
 	}
+	httpHoneypot := honeypot.NewHTTP(honeypot.HTTPConfig{
+		Port: 80,
+	})
 
-	err := postgresqlDB.Start()
+	err := httpHoneypot.Start()
 	if err != nil {
 		panic(err)
 	}
+	/*
+		postgresHoneypot := honeypot.NewPostgres(honeypot.PostgresConfig{
+			Port: 5555,
+		})
+
+		err = postgresHoneypot.Start()
+		if err != nil {
+			panic(err)
+		}
+	*/
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
 		Port: 2027,
 	})
@@ -50,29 +62,30 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	/*
+		lifoStore := store.NewTimeLifo[set.Token](time.Duration(24 * time.Hour))
+		// create a file decorator to persist the data
+		file, err := os.OpenFile("events.log", os.O_CREATE|os.O_RDWR, 0644)
+		if err != nil {
+			panic(err)
+		}
 
-	lifoStore := store.NewTimeLifo[set.Token](time.Duration(24 * time.Hour))
-	// create a file decorator to persist the data
-	file, err := os.OpenFile("events.log", os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		panic(err)
-	}
+		fileStore := store.NewFileDecorator[set.Token](
+			file,
+			store.NewJSONSerializer[set.Token](),
+			lifoStore,
+		)
 
-	fileStore := store.NewFileDecorator[set.Token](
-		file,
-		store.NewJSONSerializer[set.Token](),
-		lifoStore,
-	)
-
-	httpTransport := transport.NewHTTP(transport.HTTPConfig{
-		Port: 1112,
-		// initializes the http transport with the lifo store
-		Store: fileStore,
-	})
+		httpTransport := transport.NewHTTP(transport.HTTPConfig{
+			Port: 1112,
+			// initializes the http transport with the lifo store
+			Store: fileStore,
+		})
+	*/
 	socketioTransport := transport.NewSocketIO(transport.SocketIOConfig{
 		Port: 1113,
 	})
-	httpChan := httpTransport.Listen()
+	//httpChan := httpTransport.Listen()
 	socketioChan := socketioTransport.Listen()
 
 	dbIp := dbip.NewIpToCountry("dbip-country.csv")
@@ -86,7 +99,7 @@ func main() {
 		return input, nil
 	})
 	//postgresqlDB.DBStore(setChannel)
-	pipeline.Broadcast(setChannel, httpChan, socketioChan, dbChan)
+	pipeline.Broadcast(setChannel, socketioChan, dbChan)
 	forever := make(chan bool)
 	<-forever
 }

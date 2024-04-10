@@ -17,12 +17,10 @@ func MostUsedTCPPorts() []int {
 		23,    // Telnet
 		25,    // SMTP
 		53,    // DNS
-		80,    // HTTP
 		88,    // Kerberos
 		110,   // POP3
 		143,   // IMAP
 		389,   // LDAP
-		443,   // HTTPS
 		465,   // SMTPS
 		546,   // DHCPv6 Client
 		547,   // DHCPv6 Server
@@ -32,7 +30,6 @@ func MostUsedTCPPorts() []int {
 		993,   // IMAPS
 		995,   // POP3S
 		3306,  // MySQL
-		5432,  // PostgreSQL
 		8001,  // kubernetes dashboard default port
 		6443,  // kubernetes api server
 		2379,  // etcd
