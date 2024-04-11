@@ -18,16 +18,21 @@ func main() {
 	InitLogger()
 	postgresqlDB := store.PostgreSQL{
 		Host:     "localhost",
-		Port:     5432,
+		Port:     5423,
 		User:     "postgres",
-		Password: "123",
+		Password: "1234",
 		DBName:   "honeypot",
 	}
+	err := postgresqlDB.Start()
+	if err != nil {
+		panic(err)
+	}
+
 	httpHoneypot := honeypot.NewHTTP(honeypot.HTTPConfig{
-		Port: 80,
+		Port: 8080,
 	})
 
-	err := httpHoneypot.Start()
+	err = httpHoneypot.Start()
 	if err != nil {
 		panic(err)
 	}
@@ -41,8 +46,9 @@ func main() {
 			panic(err)
 		}
 	*/
+
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
-		Port: 2027,
+		Port: 2023,
 	})
 
 	err = sshHoneypot.Start()
@@ -80,8 +86,7 @@ func main() {
 			Port: 1112,
 			// initializes the http transport with the lifo store
 			Store: fileStore,
-		})
-	*/
+		})*/
 	socketioTransport := transport.NewSocketIO(transport.SocketIOConfig{
 		Port: 1113,
 	})
@@ -89,12 +94,11 @@ func main() {
 	socketioChan := socketioTransport.Listen()
 
 	dbIp := dbip.NewIpToCountry("dbip-country.csv")
-	//get the port of sshHoneypot and pass it to the dbStore
 
 	dbChan := postgresqlDB.Listen()
 
 	// listen for SET events
-	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), tcpHoneypot.GetSETChannel(), udpHoneypot.GetSETChannel()), func(input set.Token) (set.Token, error) {
+	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), tcpHoneypot.GetSETChannel(), udpHoneypot.GetSETChannel(), httpHoneypot.GetSETChannel()), func(input set.Token) (set.Token, error) {
 		input.COUNTRY = dbIp.Lookup(net.ParseIP(input.SUB))
 		return input, nil
 	})
