@@ -3,9 +3,14 @@ package honeypot
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"gitlab.com/neuland-homeland/honeypot/packages/set"
+	"gitlab.com/neuland-homeland/honeypot/packages/utils"
 )
 
 type httpHoneypot struct {
@@ -20,36 +25,41 @@ type HTTPConfig struct {
 
 func (h *httpHoneypot) Start() error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		/*
-			//sub, _ := utils.NetAddrToIpStr
-			token := set.Token{
-				//SUB: sub,
-				ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/tcp",
-				IAT: time.Now().Unix(),
-				JTI: uuid.New().String(),
-				TOE: time.Now().Unix(),
-				Events: map[string]map[string]interface{}{
-					PortEventID: {
-						"port": fmt.Sprintf("%d", h.port),
-					},
+		useragent := split(r.UserAgent())
+		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		sub, _ := utils.NetAddrToIpStr(remoteAddr)
+		h.setChan <- set.Token{
+			SUB: sub,
+			ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/tcp",
+			IAT: time.Now().Unix(),
+			JTI: uuid.New().String(),
+			TOE: time.Now().Unix(),
+			Events: map[string]map[string]interface{}{
+				HTTPEventID: {
+					"port":        h.port,
+					"accept-lang": r.Header.Get("Accept-Language"),
+					"user-agent":  useragent,
 				},
-			}
-			h.setChan <- token
+			},
+		}
 
-		*/
 		fmt.Fprint(w, "Hello")
 	})
+	slog.Info("HTTP Honeypot started", "port", h.port)
 	go func() {
 		for {
-			err := http.ListenAndServe("127.0.0.1:8080", nil)
+			err := http.ListenAndServe(":8080", nil)
 			if err != nil {
 				slog.Error("Error starting HTTP server", "port", h.port, "err", err)
-				return
+				continue
 			}
-			slog.Info("HTTP Honeypot started", "port", h.port)
 		}
 	}()
 	return nil
+}
+
+func split(useragent string) []string {
+	return strings.Split(strings.ReplaceAll(useragent, ") ", ")\n"), "\n")
 }
 
 // GetSETChannel implements Honeypot.
