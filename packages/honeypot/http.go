@@ -61,7 +61,7 @@ func (h *httpHoneypot) Start() error {
 
 func split(useragent string) []string {
 	splitUserAgent := strings.Split(strings.ReplaceAll(useragent, ") ", ")\n"), "\n")
-	if len(splitUserAgent) == 1 {
+	if len(splitUserAgent) != 3 {
 		splitUserAgent = append(splitUserAgent, "", "")
 	}
 	return splitUserAgent
