@@ -37,26 +37,25 @@ func (h *udpHoneypot) Start() error {
 				return
 			}
 			defer connection.Close()
-
 			slog.Info("started UDP honeypot", "port", port)
-
 			for {
 				buffer := make([]byte, 1024)
 				_, conn, _ := connection.ReadFrom(buffer)
-
-				sub, _ := utils.NetAddrToIpStr(conn)
-				h.setChan <- set.Token{
-					SUB: sub,
-					ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/udp",
-					IAT: time.Now().Unix(),
-					JTI: uuid.New().String(),
-					TOE: time.Now().Unix(),
-					Events: map[string]map[string]interface{}{
-						PortEventID: {
-							"port": fmt.Sprintf("%d", port),
+				go func() {
+					sub, _ := utils.NetAddrToIpStr(conn)
+					h.setChan <- set.Token{
+						SUB: sub,
+						ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/udp",
+						IAT: time.Now().Unix(),
+						JTI: uuid.New().String(),
+						TOE: time.Now().Unix(),
+						Events: map[string]map[string]interface{}{
+							PortEventID: {
+								"port": port,
+							},
 						},
-					},
-				}
+					}
+				}()
 
 			}
 		}(port)
