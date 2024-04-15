@@ -2,6 +2,7 @@ package honeypot
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -28,6 +29,8 @@ func (h *httpHoneypot) Start() error {
 		useragent := split(r.UserAgent())
 		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
 		sub, _ := utils.NetAddrToIpStr(remoteAddr)
+		body, _ := io.ReadAll(r.Body)
+		defer r.Body.Close()
 		h.setChan <- set.Token{
 			SUB: sub,
 			ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/tcp",
@@ -36,14 +39,18 @@ func (h *httpHoneypot) Start() error {
 			TOE: time.Now().Unix(),
 			Events: map[string]map[string]interface{}{
 				HTTPEventID: {
-					"port":        h.port,
-					"accept-lang": r.Header.Get("Accept-Language"),
-					"user-agent":  useragent,
-					"path":        r.URL.Path,
+					"port":         h.port,
+					"method":       r.Method,
+					"accept-lang":  r.Header.Get("Accept-Language"),
+					"user-agent":   useragent,
+					"content-type": r.Header.Get("Content-Type"),
+					"body":         string(body),
+					"path":         r.URL.Path,
 				},
 			},
 		}
-
+		w.Header().Set("Server", "Apache/2.2.3 (Ubuntu)")
+		w.Header().Set("X-Powered-By", "PHP/4.1.0")
 		fmt.Fprint(w, "Hello")
 	})
 	slog.Info("HTTP Honeypot started", "port", h.port)
@@ -65,6 +72,7 @@ func split(useragent string) []string {
 		splitUserAgent = append(splitUserAgent, "", "")
 	}
 	return splitUserAgent
+
 }
 
 // GetSETChannel implements Honeypot.
