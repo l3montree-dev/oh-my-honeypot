@@ -1,6 +1,8 @@
 package honeypot
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"log/slog"
 	"net"
@@ -40,9 +42,31 @@ func (p *postgresHoneypot) Start() error {
 				}
 
 				go func(conn net.Conn) {
-					//msg := make([]byte, 1024)
-					//n, err := conn.Read(msg)
-					//fmt.Println(msg[:n], string(msg[:n]), err, n)
+
+					msg := make([]byte, 1024)
+					n, err := conn.Read(msg)
+					if err != nil {
+						slog.Error("failed to read from connection", "err", err)
+						return
+					}
+					if isSSLRequest(msg[:n]) {
+						fmt.Println("SSL request received")
+						conn.Write([]byte("N"))
+						conn.Close()
+						return
+					}
+					username := searchUsername(msg[:n])
+					conn.Write(pwAuthResponse())
+					n, err = conn.Read(msg)
+					if err != nil {
+						slog.Error("failed to read from connection", "err", err)
+						return
+					}
+					password := msg[:n]
+					conn.Close()
+
+					//response that the password is not correct
+
 					sub, _ := utils.NetAddrToIpStr(conn.RemoteAddr())
 					p.setChan <- set.Token{
 						SUB: sub,
@@ -52,9 +76,9 @@ func (p *postgresHoneypot) Start() error {
 						TOE: time.Now().Unix(),
 						Events: map[string]map[string]interface{}{
 							LoginEventID: {
-								//"username": c.User(),
-								//"password": string(pass),
-								"port": p.port,
+								"username": username,
+								"password": password,
+								"port":     p.port,
 							},
 						},
 					}
@@ -64,6 +88,13 @@ func (p *postgresHoneypot) Start() error {
 
 	}()
 	return nil
+}
+
+//func (p *postgresHoneypot) handleAuth() error {
+
+func isSSLRequest(payload []byte) bool {
+	sslCode := []byte{0, 0, 0, 8, 4, 210, 22, 47}
+	return bytes.Equal(payload[:8], sslCode)
 }
 
 // GetSETChannel implements Honeypot.
@@ -76,4 +107,35 @@ func NewPostgres(config PostgresConfig) Honeypot {
 		port:    config.Port,
 		setChan: make(chan set.Token),
 	}
+}
+
+// searchUsername string ,which places between "user" and "database" in the payload
+func searchUsername(payload []byte) string {
+	//search for "user" in the payload
+	userIndex := bytes.Index(payload, []byte("user"))
+	if userIndex == -1 {
+		return ""
+	}
+	//search for "database" in the payload
+	databaseIndex := bytes.Index(payload, []byte("database"))
+	if databaseIndex == -1 {
+		return ""
+	}
+	//search for the username between "user" and "database"
+	username := payload[userIndex+5 : databaseIndex-1]
+	return string(username)
+}
+
+func pwAuthResponse() []byte {
+	buf := []byte{82, 0, 0, 0, 0}
+	pos := 1
+	// cleartext
+	x := make([]byte, 4)
+	binary.BigEndian.PutUint32(x, uint32(3))
+	buf = append(buf, x...)
+
+	// wrap
+	p := buf[pos:]
+	binary.BigEndian.PutUint32(p, uint32(len(p)))
+	return buf
 }

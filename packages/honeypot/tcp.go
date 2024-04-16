@@ -63,7 +63,7 @@ func (h *tcpHoneypot) Start() error {
 			for {
 				conn, err := listener.Accept()
 				if err != nil {
-					slog.Error("Error accepting connection on port", port, "err", err)
+					slog.Error("Error accepting connection on port", "port", port, "err", err)
 					continue
 				}
 				go func(conn net.Conn) {

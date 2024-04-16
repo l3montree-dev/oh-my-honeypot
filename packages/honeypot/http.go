@@ -52,6 +52,7 @@ func (h *httpHoneypot) Start() error {
 		w.Header().Set("Server", "Apache/2.2.3 (Ubuntu)")
 		w.Header().Set("X-Powered-By", "PHP/4.1.0")
 		fmt.Fprint(w, "Hello")
+
 	})
 	slog.Info("HTTP Honeypot started", "port", h.port)
 	go func() {
