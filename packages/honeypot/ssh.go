@@ -41,9 +41,10 @@ func (s *sshHoneypot) Start() error {
 				TOE: time.Now().Unix(),
 				Events: map[string]map[string]interface{}{
 					LoginEventID: {
-						"username": c.User(),
-						"password": string(pass),
-						"port":     s.GetPort(),
+						"username":   c.User(),
+						"password":   string(pass),
+						"attackType": "Login attempt",
+						"port":       s.GetPort(),
 					},
 				},
 			}
@@ -76,15 +77,29 @@ func (s *sshHoneypot) Start() error {
 				continue
 			}
 
-			go handeConn(tcpConn, config)
+			go s.handeConn(tcpConn, config)
 		}
 	}()
 	return nil
 }
 
-func handeConn(tcpConn net.Conn, config *ssh.ServerConfig) {
+func (s *sshHoneypot) handeConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 	// just perform the handshake
+	defer tcpConn.Close()
 	_, _, _, err := ssh.NewServerConn(tcpConn, config)
+	sub, _ := utils.NetAddrToIpStr(tcpConn.RemoteAddr())
+	s.setChan <- set.Token{
+		SUB: sub,
+		ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/ssh",
+		IAT: time.Now().Unix(),
+		JTI: uuid.New().String(),
+		TOE: time.Now().Unix(),
+		Events: map[string]map[string]interface{}{
+			PortEventID: {
+				"port": s.GetPort(),
+			},
+		},
+	}
 	if err != nil {
 		return
 	}
