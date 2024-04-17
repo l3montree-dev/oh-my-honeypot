@@ -40,7 +40,8 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 					port = input.Events[honeypot.LoginEventID]["port"].(int)
 					username := input.Events[honeypot.LoginEventID]["username"].(string)
 					password := input.Events[honeypot.LoginEventID]["password"].(string)
-					defer p.logininfoInsert(input.JTI, username, password)
+					service := input.Events[honeypot.LoginEventID]["service"].(string)
+					defer p.logininfoInsert(input.JTI, service, username, password)
 				}
 				if input.Events[honeypot.HTTPEventID] != nil {
 					attackType = "HTTP Request"
@@ -74,11 +75,11 @@ func (p *PostgreSQL) attackInsert(attackID string, time time.Time, port int, ip 
 	}
 }
 
-func (p *PostgreSQL) logininfoInsert(attackID string, username string, password string) {
+func (p *PostgreSQL) logininfoInsert(attackID string, service string, username string, password string) {
 	_, err := p.DB.Exec(`
-	INSERT INTO login_attempt (Attack_ID,Username,Password)
-	VALUES ($1, $2, $3)
-	`, attackID, username, password)
+	INSERT INTO login_attempt (Attack_ID,service,Username,Password)
+	VALUES ($1, $2, $3,$4)
+	`, attackID, service, username, password)
 
 	if err != nil {
 		log.Println("Error while storing on the DB", err)
@@ -136,6 +137,7 @@ func (p *PostgreSQL) Start() error {
 			);
 		CREATE TABLE IF NOT EXISTS login_attempt (
 			Attack_ID TEXT PRIMARY KEY,
+			Service TEXT,
 			Username TEXT,
 			Password TEXT,
 			FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID) 

@@ -97,7 +97,7 @@ func main() {
 	dbChan := postgresqlDB.Listen()
 
 	// listen for SET events
-	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), tcpHoneypot.GetSETChannel(), udpHoneypot.GetSETChannel(), httpHoneypot.GetSETChannel()), func(input set.Token) (set.Token, error) {
+	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), tcpHoneypot.GetSETChannel(), udpHoneypot.GetSETChannel(), httpHoneypot.GetSETChannel(), postgresHoneypot.GetSETChannel()), func(input set.Token) (set.Token, error) {
 		input.COUNTRY = dbIp.Lookup(net.ParseIP(input.SUB))
 		return input, nil
 	})
