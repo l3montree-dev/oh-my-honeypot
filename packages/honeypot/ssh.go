@@ -45,6 +45,7 @@ func (s *sshHoneypot) Start() error {
 						"password":   string(pass),
 						"attackType": "Login attempt",
 						"port":       s.GetPort(),
+						"service":    "ssh",
 					},
 				},
 			}
