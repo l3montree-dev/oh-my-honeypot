@@ -30,6 +30,7 @@ func (h *httpHoneypot) Start() error {
 		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
 		sub, _ := utils.NetAddrToIpStr(remoteAddr)
 		body, _ := io.ReadAll(r.Body)
+		mimeType := http.DetectContentType(body)
 		defer r.Body.Close()
 		h.setChan <- set.Token{
 			SUB: sub,
@@ -43,8 +44,9 @@ func (h *httpHoneypot) Start() error {
 					"method":       r.Method,
 					"accept-lang":  r.Header.Get("Accept-Language"),
 					"user-agent":   useragent,
-					"content-type": r.Header.Get("Content-Type"),
+					"content-type": mimeType,
 					"body":         string(body),
+					"bodysize":     len(body),
 					"path":         r.URL.Path,
 				},
 			},
@@ -57,7 +59,7 @@ func (h *httpHoneypot) Start() error {
 	slog.Info("HTTP Honeypot started", "port", h.port)
 	go func() {
 		for {
-			err := http.ListenAndServe(":8080", nil)
+			err := http.ListenAndServe(":80", nil)
 			if err != nil {
 				slog.Error("Error starting HTTP server", "port", h.port, "err", err)
 				continue
