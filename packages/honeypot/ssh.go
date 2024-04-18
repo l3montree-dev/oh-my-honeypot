@@ -27,6 +27,8 @@ type SSHConfig struct {
 	Port int
 }
 
+var isLoginattempt bool
+
 func (s *sshHoneypot) Start() error {
 	config := &ssh.ServerConfig{
 		//Define a function to run when a client attempts a password login
@@ -41,14 +43,14 @@ func (s *sshHoneypot) Start() error {
 				TOE: time.Now().Unix(),
 				Events: map[string]map[string]interface{}{
 					LoginEventID: {
-						"username":   c.User(),
-						"password":   string(pass),
-						"attackType": "Login attempt",
-						"port":       s.GetPort(),
-						"service":    "ssh",
+						"username": c.User(),
+						"password": string(pass),
+						"port":     s.GetPort(),
+						"service":  "ssh",
 					},
 				},
 			}
+			isLoginattempt = true
 			slog.Info("Login attempt", "user", c.User(), "pass", string(pass), "ip", c.RemoteAddr())
 			return nil, fmt.Errorf("password rejected for %q", c.User())
 		},
@@ -88,6 +90,9 @@ func (s *sshHoneypot) handeConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 	// just perform the handshake
 	defer tcpConn.Close()
 	_, _, _, err := ssh.NewServerConn(tcpConn, config)
+	if isLoginattempt {
+		return
+	}
 	sub, _ := utils.NetAddrToIpStr(tcpConn.RemoteAddr())
 	s.setChan <- set.Token{
 		SUB: sub,
