@@ -36,12 +36,10 @@ make
 
 This starts the honeypot.
 
-
 ## Configuration
 
 ### DB-IP
 
 The honeypot uses the [DB-IP](https://db-ip.com/) service to determine the geolocation of the IP addresses that interact with it. The db-ip lite database is included in the project and needs to be updated regularly. The link to download the latest version can be found [here](https://download.db-ip.com/free/dbip-country-lite-2024-01.csv.gz). The file needs to be extracted and placed in the `root` folder. The file name should be `dbip-country.csv`.
-
 
 <a href='https://db-ip.com'>IP Geolocation by DB-IP</a>
