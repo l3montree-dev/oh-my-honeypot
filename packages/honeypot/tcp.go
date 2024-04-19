@@ -17,9 +17,7 @@ func MostUsedTCPPorts() []int {
 		23,    // Telnet
 		25,    // SMTP
 		53,    // DNS
-		88,    // Kerberos
-		110,   // POP3
-		143,   // IMAP
+		80,    // HTTP
 		389,   // LDAP
 		465,   // SMTPS
 		546,   // DHCPv6 Client
@@ -69,7 +67,6 @@ func (h *tcpHoneypot) Start() error {
 				}
 				go func(conn net.Conn) {
 					defer conn.Close()
-
 					sub, _ := utils.NetAddrToIpStr(conn.RemoteAddr())
 					h.setChan <- set.Token{
 						SUB: sub,

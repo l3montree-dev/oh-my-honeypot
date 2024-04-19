@@ -86,7 +86,6 @@ func main() {
 		// initializes the http transport with the lifo store
 		Store: fileStore,
 	})
-
 	socketioTransport := transport.NewSocketIO(transport.SocketIOConfig{
 		Port: 1113,
 	})
