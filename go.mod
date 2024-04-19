@@ -3,6 +3,7 @@ module gitlab.com/neuland-homeland/honeypot
 go 1.22
 
 toolchain go1.22.0
+
 require (
 	github.com/google/uuid v1.3.0
 	github.com/googollee/go-socket.io v1.7.0
