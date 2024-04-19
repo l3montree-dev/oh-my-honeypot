@@ -54,13 +54,14 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 					useragent := input.Events[honeypot.HTTPEventID]["user-agent"].([]string)
 					if method == "POST" || method == "PUT" || method == "PATCH" {
 						payloadSize := input.Events[honeypot.HTTPEventID]["bodysize"].(int)
-
 						maxSize := int64(100 * 1024 * 1024)
 						//Payload size should be greater than 100MB
 						if payloadSize < int(maxSize) {
 							attackID := input.JTI
 							payload := input.Events[honeypot.HTTPEventID]["body"].(string)
 							savePayload(attackID, payload)
+						} else {
+							slog.Info("Payload size is greater than 100MB")
 						}
 						contentType := input.Events[honeypot.HTTPEventID]["content-type"].(string)
 						defer p.bodyInsert(input.JTI, method, contentType, strconv.Itoa(payloadSize)+" bytes")
@@ -74,6 +75,7 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 	return res
 }
 
+// Insert the attack into the database and sanitize the input by using prepared statements
 func (p *PostgreSQL) attackInsert(attackID string, time time.Time, port int, ip string, country string, attackType string) {
 	_, err := p.DB.Exec(`
 	INSERT INTO attack_log (Attack_id, Time_Of_Event,Port_Nr,IP_Address,Country,Attack_Type)
@@ -82,7 +84,6 @@ func (p *PostgreSQL) attackInsert(attackID string, time time.Time, port int, ip 
 	if err != nil {
 		log.Println("Error inserting into the database attack_log", err)
 	}
-
 }
 
 func (p *PostgreSQL) loginattInsert(attackID string, service string, username string, password string) {
@@ -192,7 +193,7 @@ func (p *PostgreSQL) Close() error {
 }
 
 func savePayload(id string, payload string) error {
-	file, err := os.OpenFile("payloads/"+id+")", os.O_CREATE|os.O_RDWR, 0644)
+	file, err := os.OpenFile("payloads/"+id, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		panic(err)
 	}
