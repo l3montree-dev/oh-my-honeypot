@@ -48,7 +48,7 @@ func main() {
 	}
 
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
-		Port: 22223,
+		Port: 22,
 	})
 	err = sshHoneypot.Start()
 	if err != nil {
