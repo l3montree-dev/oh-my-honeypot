@@ -1,12 +1,10 @@
 package main
 
 import (
-	"log/slog"
 	"net"
 	"os"
 	"time"
 
-	"github.com/lmittmann/tint"
 	"gitlab.com/neuland-homeland/honeypot/packages/dbip"
 	"gitlab.com/neuland-homeland/honeypot/packages/honeypot"
 	"gitlab.com/neuland-homeland/honeypot/packages/pipeline"
@@ -15,25 +13,26 @@ import (
 	"gitlab.com/neuland-homeland/honeypot/packages/transport"
 )
 
-// InitLogger initializes the logger with a tint handler.
-// tint is a simple logging library that allows to add colors to the log output.
-// this is obviously not required, but it makes the logs easier to read.
-func InitLogger() {
-	loggingHandler := tint.NewHandler(os.Stdout, &tint.Options{
-		AddSource: true,
-		Level:     slog.LevelDebug,
-	})
-	logger := slog.New(loggingHandler)
-	slog.SetDefault(logger)
-}
-
 func main() {
-	InitLogger()
+
+	postgresqlDB := store.PostgreSQL{
+		Host:     "localhost",
+		Port:     5432,
+		User:     "postgres",
+		Password: "123",
+		DBName:   "honeypot",
+	}
+
+	err := postgresqlDB.Start()
+	if err != nil {
+		panic(err)
+	}
+
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
-		Port: 2022,
+		Port: 22,
 	})
 
-	err := sshHoneypot.Start()
+	err = sshHoneypot.Start()
 	if err != nil {
 		panic(err)
 	}
@@ -83,6 +82,7 @@ func main() {
 		return input, nil
 	})
 
+	postgresqlDB.DBStore(setChannel)
 	pipeline.Broadcast(setChannel, httpChan, socketioChan)
 	forever := make(chan bool)
 	<-forever

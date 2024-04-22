@@ -3,7 +3,7 @@ package transport
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
+	"log"
 	"net/http"
 
 	socketio "github.com/googollee/go-socket.io"
@@ -33,7 +33,7 @@ func (w *socketioTransport) Listen() chan<- set.Token {
 	server.BroadcastToRoom("", "bcast", "attack")
 	http.Handle("/socket.io/", server)
 	go func() {
-		slog.Info("Socket.io transport listening", "port", w.port)
+		log.Println("Socket.io transport listening on port", w.port)
 		err := http.ListenAndServe(":"+fmt.Sprintf("%d", w.port), nil)
 		if err != nil {
 			panic("ListenAndServe: " + err.Error())
@@ -47,7 +47,7 @@ func (w *socketioTransport) Listen() chan<- set.Token {
 			// and send it to the socket
 			bytes, err := json.Marshal(msg)
 			if err != nil {
-				slog.Error("Error marshalling token to json", "err", err)
+				log.Println("Error marshalling token to json:", err)
 				continue
 			}
 			server.BroadcastToRoom("", "bcast", "attack", string(bytes))

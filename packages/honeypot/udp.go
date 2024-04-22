@@ -2,7 +2,7 @@ package honeypot
 
 import (
 	"fmt"
-	"log/slog"
+	"log"
 	"net"
 	"time"
 
@@ -33,12 +33,12 @@ func (h *udpHoneypot) Start() error {
 			// create a new tcp listener on the port
 			connection, err := net.ListenPacket("udp", fmt.Sprintf(":%d", port))
 			if err != nil {
-				slog.Error("error creating UDP listener", "port", port, "err", err)
+				log.Println("Error creating UDP listener on port", port, err)
 				return
 			}
 			defer connection.Close()
 
-			slog.Info("started UDP honeypot", "port", port)
+			log.Println("Starting UDP honeypot on port", port)
 
 			for {
 				buffer := make([]byte, 1024)
@@ -52,7 +52,7 @@ func (h *udpHoneypot) Start() error {
 					JTI: uuid.New().String(),
 					TOE: time.Now().Unix(),
 					Events: map[string]map[string]interface{}{
-						"https://gitlab.com/neuland-homeland/honeypot/json-schema/udp-port": {
+						PortEventID: {
 							"port": fmt.Sprintf("%d", port),
 						},
 					},
