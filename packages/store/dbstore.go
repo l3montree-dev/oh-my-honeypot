@@ -38,12 +38,23 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 				if input.Events[honeypot.LoginEventID] != nil {
 					attackType = "Login Attempt"
 					port = input.Events[honeypot.LoginEventID]["port"].(int)
-					defer p.logininfoInsert(input.JTI, input.Events[honeypot.LoginEventID]["username"].(string), input.Events[honeypot.LoginEventID]["password"].(string))
+					username := input.Events[honeypot.LoginEventID]["username"].(string)
+					password := input.Events[honeypot.LoginEventID]["password"].(string)
+					defer p.logininfoInsert(input.JTI, username, password)
 				}
 				if input.Events[honeypot.HTTPEventID] != nil {
 					attackType = "HTTP Request"
+					method := input.Events[honeypot.HTTPEventID]["method"].(string)
+					path := input.Events[honeypot.HTTPEventID]["path"].(string)
 					port = input.Events[honeypot.HTTPEventID]["port"].(int)
-					defer p.httpInsert(input.JTI, input.Events[honeypot.HTTPEventID]["path"].(string), input.Events[honeypot.HTTPEventID]["accept-lang"].(string), input.Events[honeypot.HTTPEventID]["user-agent"].([]string))
+					acceptLanguage := input.Events[honeypot.HTTPEventID]["accept-lang"].(string)
+					useragent := input.Events[honeypot.HTTPEventID]["user-agent"].([]string)
+					if method == "POST" || method == "PUT" || method == "PATCH" {
+						payload := input.Events[honeypot.HTTPEventID]["body"].(string)
+						contentType := input.Events[honeypot.HTTPEventID]["content-type"].(string)
+						defer p.payloadInsert(input.JTI, method, contentType, payload)
+					}
+					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent)
 				}
 				p.attackInsert(input.JTI, timeObj, port, input.SUB, input.COUNTRY, attackType)
 			}()
@@ -74,12 +85,24 @@ func (p *PostgreSQL) logininfoInsert(attackID string, username string, password 
 	}
 }
 
-func (p *PostgreSQL) httpInsert(attackID string, path string, acceptLanguage string, useragent []string) {
+func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acceptLanguage string, useragent []string) {
 
 	_, err := p.DB.Exec(`
-	INSERT INTO http_request (Attack_ID,path,accept_language,system,rendering_engine,platform)
-	VALUES ($1, $2, $3, $4, $5, $6)
-	`, attackID, path, acceptLanguage, useragent[0], useragent[1], useragent[2])
+	INSERT INTO http_request (Attack_ID,method,path,accept_language,system,rendering_engine,platform)
+	VALUES ($1, $2, $3, $4, $5, $6,$7)
+	`, attackID, method, path, acceptLanguage, useragent[0], useragent[1], useragent[2])
+
+	if err != nil {
+		log.Println("Error while storing on the DB", err)
+	}
+}
+
+func (p *PostgreSQL) payloadInsert(attackID string, method string, contentType string, payload string) {
+
+	_, err := p.DB.Exec(`
+	INSERT INTO postform_request (Attack_ID,method,content_type,payload)
+	VALUES ($1, $2,$3,$4)
+	`, attackID, method, contentType, payload)
 
 	if err != nil {
 		log.Println("Error while storing on the DB", err)
@@ -119,11 +142,19 @@ func (p *PostgreSQL) Start() error {
 			);
 		CREATE TABLE IF NOT EXISTS http_request (
 			Attack_ID TEXT PRIMARY KEY,
+			method TEXT,
 			path TEXT,
 			accept_language TEXT,
 			system	TEXT,
 			rendering_engine TEXT,
 			platform TEXT,
+			FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID) 
+			);
+		CREATE TABLE IF NOT EXISTS postform_request (
+			Attack_ID TEXT PRIMARY KEY,
+			method TEXT,
+			content_type VARCHAR(10485760),
+			payload TEXT,
 			FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID) 
 			);
 			`)
