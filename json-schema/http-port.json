@@ -6,6 +6,7 @@
     "title": "Root Schema",
     "required": [
         "port",
+        "accept-language",
         "user-agent"
     ],
     "properties": {
@@ -15,6 +16,14 @@
             "title": "The port which got scanned",
             "examples": [
                 "8080"
+            ]
+        },
+        "acpt-language": {
+            "type": "string",
+            "default": "",
+            "title": "The accept language",
+            "examples": [
+                "en-US,en;q=0.5"
             ]
         },
         "user-agent": {

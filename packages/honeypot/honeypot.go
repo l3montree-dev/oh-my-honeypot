@@ -13,6 +13,7 @@ import (
 const (
 	LoginEventID = "https://gitlab.com/neuland-homeland/honeypot/json-schema/ssh-login-attempt.json"
 	PortEventID  = "https://gitlab.com/neuland-homeland/honeypot/json-schema/port"
+	HTTPEventID  = "https://gitlab.com/neuland-homeland/honeypot/json-schema/http-port.json"
 )
 
 type Honeypot interface {
