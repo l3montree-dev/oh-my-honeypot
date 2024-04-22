@@ -30,7 +30,7 @@ func main() {
 		panic(err)
 	}
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
-		Port: 22,
+		Port: 2027,
 	})
 
 	err = sshHoneypot.Start()
