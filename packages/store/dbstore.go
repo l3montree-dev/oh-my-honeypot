@@ -43,7 +43,7 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 				if input.Events[honeypot.HTTPEventID] != nil {
 					attackType = "HTTP Request"
 					port = input.Events[honeypot.HTTPEventID]["port"].(int)
-					defer p.httpInsert(input.JTI, input.Events[honeypot.HTTPEventID]["accept-lang"].(string), input.Events[honeypot.HTTPEventID]["user-agent"].([]string))
+					defer p.httpInsert(input.JTI, input.Events[honeypot.HTTPEventID]["path"].(string), input.Events[honeypot.HTTPEventID]["accept-lang"].(string), input.Events[honeypot.HTTPEventID]["user-agent"].([]string))
 				}
 				p.attackInsert(input.JTI, timeObj, port, input.SUB, input.COUNTRY, attackType)
 			}()
@@ -74,11 +74,12 @@ func (p *PostgreSQL) logininfoInsert(attackID string, username string, password 
 	}
 }
 
-func (p *PostgreSQL) httpInsert(attackID string, acceptLanguage string, useragent []string) {
+func (p *PostgreSQL) httpInsert(attackID string, path string, acceptLanguage string, useragent []string) {
+
 	_, err := p.DB.Exec(`
-	INSERT INTO http_request (Attack_ID,accept_language,system,rendering_engine,platform)
-	VALUES ($1, $2, $3, $4, $5)
-	`, attackID, acceptLanguage, useragent[0], useragent[1], useragent[2])
+	INSERT INTO http_request (Attack_ID,path,accept_language,system,rendering_engine,platform)
+	VALUES ($1, $2, $3, $4, $5, $6)
+	`, attackID, path, acceptLanguage, useragent[0], useragent[1], useragent[2])
 
 	if err != nil {
 		log.Println("Error while storing on the DB", err)
@@ -118,6 +119,7 @@ func (p *PostgreSQL) Start() error {
 			);
 		CREATE TABLE IF NOT EXISTS http_request (
 			Attack_ID TEXT PRIMARY KEY,
+			path TEXT,
 			accept_language TEXT,
 			system	TEXT,
 			rendering_engine TEXT,

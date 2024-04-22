@@ -24,7 +24,7 @@ type HTTPConfig struct {
 }
 
 func (h *httpHoneypot) Start() error {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
 		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
 		sub, _ := utils.NetAddrToIpStr(remoteAddr)
@@ -39,6 +39,7 @@ func (h *httpHoneypot) Start() error {
 					"port":        h.port,
 					"accept-lang": r.Header.Get("Accept-Language"),
 					"user-agent":  useragent,
+					"path":        r.URL.Path,
 				},
 			},
 		}
@@ -59,7 +60,11 @@ func (h *httpHoneypot) Start() error {
 }
 
 func split(useragent string) []string {
-	return strings.Split(strings.ReplaceAll(useragent, ") ", ")\n"), "\n")
+	splitUserAgent := strings.Split(strings.ReplaceAll(useragent, ") ", ")\n"), "\n")
+	if len(splitUserAgent) == 1 {
+		splitUserAgent = append(splitUserAgent, "", "")
+	}
+	return splitUserAgent
 }
 
 // GetSETChannel implements Honeypot.
