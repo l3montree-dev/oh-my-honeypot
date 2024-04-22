@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,47 +41,61 @@ func (p *postgresHoneypot) Start() error {
 					slog.Error("failed to accept incoming connection", "err", err)
 					continue
 				}
-
 				go func(conn net.Conn) {
-
-					msg := make([]byte, 1024)
-					n, err := conn.Read(msg)
-					if err != nil {
-						slog.Error("failed to read from connection", "err", err)
-						return
-					}
-					if isSSLRequest(msg[:n]) {
-						fmt.Println("SSL request received")
-						conn.Write([]byte("N"))
-						conn.Close()
-						return
-					}
-					username := searchUsername(msg[:n])
-					conn.Write(pwAuthResponse())
-					n, err = conn.Read(msg)
-					if err != nil {
-						slog.Error("failed to read from connection", "err", err)
-						return
-					}
-					password := msg[:n]
-					conn.Close()
-
-					//response that the password is not correct
-
-					sub, _ := utils.NetAddrToIpStr(conn.RemoteAddr())
-					p.setChan <- set.Token{
-						SUB: sub,
-						ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/http",
-						IAT: time.Now().Unix(),
-						JTI: uuid.New().String(),
-						TOE: time.Now().Unix(),
-						Events: map[string]map[string]interface{}{
-							LoginEventID: {
-								"username": username,
-								"password": password,
-								"port":     p.port,
-							},
-						},
+					defer conn.Close()
+					readBeforeFromThisConnection := false
+					passwordExist := false
+					username := ""
+					for {
+						sub, _ := utils.NetAddrToIpStr(conn.RemoteAddr())
+						msg := make([]byte, 1024)
+						n, _ := conn.Read(msg)
+						msg = msg[:n]
+						if n == 0 && !readBeforeFromThisConnection {
+							p.setChan <- set.Token{
+								SUB: sub,
+								ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/tcp",
+								IAT: time.Now().Unix(),
+								JTI: uuid.New().String(),
+								TOE: time.Now().Unix(),
+								Events: map[string]map[string]interface{}{
+									PortEventID: {
+										"port": p.port,
+									},
+								},
+							}
+							return
+						}
+						// n has to be greater than 0 since we are in the loop
+						if isSSLRequest(msg) {
+							slog.Info("SSL postgres request received from", "IP", conn.RemoteAddr())
+							conn.Write([]byte("N"))
+							conn.Close()
+							return
+						} else if isLoginMessage(msg) {
+							username = searchUsername(msg)
+							conn.Write(pwAuthResponse())
+							readBeforeFromThisConnection = true
+							continue
+						} else if isPasswordMessage(msg) && !passwordExist {
+							password := string(msg[5 : len(msg)-1])
+							p.setChan <- set.Token{
+								SUB: sub,
+								ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/http",
+								IAT: time.Now().Unix(),
+								JTI: uuid.New().String(),
+								TOE: time.Now().Unix(),
+								Events: map[string]map[string]interface{}{
+									LoginEventID: {
+										"username": username,
+										"password": password,
+										"port":     p.port,
+										"service":  "Postgres",
+									},
+								},
+							}
+							conn.Write(authErrorResponse())
+						}
 					}
 				}(conn)
 			}
@@ -138,4 +153,29 @@ func pwAuthResponse() []byte {
 	p := buf[pos:]
 	binary.BigEndian.PutUint32(p, uint32(len(p)))
 	return buf
+
+}
+
+func authErrorResponse() []byte {
+	buf := []byte{'E', 0, 0, 0, 0}
+	pos := 1
+	// Severity
+	buf = append(buf, ("SERROR" + "\000")...)
+	// Code & Position
+	buf = append(buf, ("C08P01" + "\000")...)
+	// Message
+	buf = append(buf, ("M" + "Authentication failed" + "\000" + "\000")...)
+	p := buf[pos:]
+	binary.BigEndian.PutUint32(p, uint32(len(p)))
+	return buf
+}
+func isPasswordMessage(msg []byte) bool {
+	return strings.HasPrefix(string(msg), "p")
+}
+func isLoginMessage(msg []byte) bool {
+	// create a string representation of the message
+	msgStr := string(msg)
+	// if there is the word "user" and "database" in the message, we can be sure, that
+	// this is the initial connection message
+	return strings.Contains(msgStr, "user") && strings.Contains(msgStr, "database")
 }

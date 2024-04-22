@@ -68,6 +68,7 @@ func (h *tcpHoneypot) Start() error {
 				}
 				go func(conn net.Conn) {
 					defer conn.Close()
+
 					sub, _ := utils.NetAddrToIpStr(conn.RemoteAddr())
 					h.setChan <- set.Token{
 						SUB: sub,
