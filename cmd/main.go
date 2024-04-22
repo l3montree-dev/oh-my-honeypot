@@ -36,19 +36,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	/*
-		postgresHoneypot := honeypot.NewPostgres(honeypot.PostgresConfig{
-			Port: 5555,
-		})
 
-		err = postgresHoneypot.Start()
-		if err != nil {
-			panic(err)
-		}
-	*/
+	postgresHoneypot := honeypot.NewPostgres(honeypot.PostgresConfig{
+		Port: 5555,
+	})
+
+	err = postgresHoneypot.Start()
+	if err != nil {
+		panic(err)
+	}
 
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
-		Port: 2023,
+		Port: 2021,
 	})
 
 	err = sshHoneypot.Start()
