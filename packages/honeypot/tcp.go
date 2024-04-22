@@ -12,6 +12,7 @@ import (
 
 func MostUsedTCPPorts() []int {
 	return []int{
+		//Most used TCP 20ports
 		21,    // FTP
 		23,    // Telnet
 		25,    // SMTP

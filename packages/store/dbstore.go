@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"os"
+	"strconv"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -41,7 +43,7 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 					username := input.Events[honeypot.LoginEventID]["username"].(string)
 					password := input.Events[honeypot.LoginEventID]["password"].(string)
 					service := input.Events[honeypot.LoginEventID]["service"].(string)
-					defer p.logininfoInsert(input.JTI, service, username, password)
+					defer p.loginattInsert(input.JTI, service, username, password)
 				}
 				if input.Events[honeypot.HTTPEventID] != nil {
 					attackType = "HTTP Request"
@@ -51,9 +53,18 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 					acceptLanguage := input.Events[honeypot.HTTPEventID]["accept-lang"].(string)
 					useragent := input.Events[honeypot.HTTPEventID]["user-agent"].([]string)
 					if method == "POST" || method == "PUT" || method == "PATCH" {
-						payload := input.Events[honeypot.HTTPEventID]["body"].(string)
+						payloadSize := input.Events[honeypot.HTTPEventID]["bodysize"].(int)
+						maxSize := int64(100 * 1024 * 1024)
+						//Payload size should be greater than 100MB
+						if payloadSize < int(maxSize) {
+							attackID := input.JTI
+							payload := input.Events[honeypot.HTTPEventID]["body"].(string)
+							savePayload(attackID, payload)
+						} else {
+							slog.Info("Payload size is greater than 100MB")
+						}
 						contentType := input.Events[honeypot.HTTPEventID]["content-type"].(string)
-						defer p.payloadInsert(input.JTI, method, contentType, payload)
+						defer p.bodyInsert(input.JTI, method, contentType, strconv.Itoa(payloadSize)+" bytes")
 					}
 					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent)
 				}
@@ -64,49 +75,45 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 	return res
 }
 
+// Insert the attack into the database and sanitize the input by using prepared statements
 func (p *PostgreSQL) attackInsert(attackID string, time time.Time, port int, ip string, country string, attackType string) {
 	_, err := p.DB.Exec(`
 	INSERT INTO attack_log (Attack_id, Time_Of_Event,Port_Nr,IP_Address,Country,Attack_Type)
 	VALUES ($1, $2, $3, $4,$5, $6);
 	`, attackID, time, port, ip, country, attackType)
-
 	if err != nil {
-		log.Println("Error while storing on the DB", err)
+		log.Println("Error inserting into the database attack_log", err)
 	}
 }
 
-func (p *PostgreSQL) logininfoInsert(attackID string, service string, username string, password string) {
+func (p *PostgreSQL) loginattInsert(attackID string, service string, username string, password string) {
 	_, err := p.DB.Exec(`
 	INSERT INTO login_attempt (Attack_ID,service,Username,Password)
 	VALUES ($1, $2, $3,$4)
 	`, attackID, service, username, password)
-
 	if err != nil {
-		log.Println("Error while storing on the DB", err)
+		log.Println("Error inserting into the database login_attempt", err)
 	}
 }
 
 func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acceptLanguage string, useragent []string) {
-
 	_, err := p.DB.Exec(`
 	INSERT INTO http_request (Attack_ID,method,path,accept_language,system,rendering_engine,platform)
 	VALUES ($1, $2, $3, $4, $5, $6,$7)
 	`, attackID, method, path, acceptLanguage, useragent[0], useragent[1], useragent[2])
-
 	if err != nil {
-		log.Println("Error while storing on the DB", err)
+		log.Println("Error inserting into the database http_request", err)
 	}
 }
 
-func (p *PostgreSQL) payloadInsert(attackID string, method string, contentType string, payload string) {
-
+func (p *PostgreSQL) bodyInsert(attackID string, method string, contentType string, payloadSize string) {
 	_, err := p.DB.Exec(`
-	INSERT INTO postform_request (Attack_ID,method,content_type,payload)
-	VALUES ($1, $2,$3,$4)
-	`, attackID, method, contentType, payload)
-
+	INSERT INTO http_body (Attack_ID,method,content_type,payload_size)
+	VALUES ($1,$2,$3,$4)
+	`, attackID, method, contentType, payloadSize)
 	if err != nil {
-		log.Println("Error while storing on the DB", err)
+		//Err
+		log.Println("Error inserting into the database http_body", err)
 	}
 }
 
@@ -121,50 +128,58 @@ func (p *PostgreSQL) Start() error {
 		log.Println("Error while opening to the DB", err)
 		return err
 	}
-
 	// Set the database connection in the postgreSQL struct
 	p.DB = db
 
-	// Create the tables if they do not exist
+	//Create the tables if they do not exist
 	_, err = p.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS attack_log (
-			Attack_ID TEXT PRIMARY KEY,
-			Time_Of_Event TIMESTAMP,
-			Port_Nr INT,
-			IP_Address TEXT,
-			Country TEXT,
-			Attack_Type TEXT
-			);
-		CREATE TABLE IF NOT EXISTS login_attempt (
-			Attack_ID TEXT PRIMARY KEY,
-			Service TEXT,
-			Username TEXT,
-			Password TEXT,
-			FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID) 
-			);
-		CREATE TABLE IF NOT EXISTS http_request (
-			Attack_ID TEXT PRIMARY KEY,
-			method TEXT,
-			path TEXT,
-			accept_language TEXT,
-			system	TEXT,
-			rendering_engine TEXT,
-			platform TEXT,
-			FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID) 
-			);
-		CREATE TABLE IF NOT EXISTS postform_request (
-			Attack_ID TEXT PRIMARY KEY,
-			method TEXT,
-			content_type VARCHAR(10485760),
-			payload TEXT,
-			FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID) 
-			);
-			`)
+	CREATE TABLE IF NOT EXISTS attack_log (
+		Attack_ID TEXT PRIMARY KEY,
+		Time_Of_Event TIMESTAMP,
+		Port_Nr INT,
+		IP_Address TEXT,
+		Country TEXT,
+		Attack_Type TEXT
+		);`)
 	if err != nil {
-		log.Println("Error while creating tables", err)
+		log.Println("Error creating table attack_log", err)
 	}
-	slog.Info("PostgreSQL store started")
+	_, err = p.DB.Exec(`
+	CREATE TABLE IF NOT EXISTS login_attempt (
+		Attack_ID TEXT PRIMARY KEY, 
+		Service TEXT, Username TEXT, 
+		Password TEXT, 
+		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID)
+		);`)
+	if err != nil {
+		log.Println("Error creating table login_attempt", err)
+	}
+	_, err = p.DB.Exec(`
+	CREATE TABLE IF NOT EXISTS http_request (
+		Attack_ID TEXT PRIMARY KEY, 
+		method TEXT, 
+		path TEXT, 
+		accept_language TEXT, 
+		system TEXT, 
+		rendering_engine TEXT, 
+		platform TEXT, 
+		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID)
+		);`)
+	if err != nil {
+		log.Println("Error creating table http_request", err)
+	}
+	_, err = p.DB.Exec(`
+	CREATE TABLE IF NOT EXISTS http_body (
+		Attack_ID TEXT PRIMARY KEY, 
+		method TEXT, 
+		content_type TEXT, 
+		payload_size TEXT, 
+		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
+	if err != nil {
+		log.Println("Error creating table http_body", err)
+	}
 
+	slog.Info("PostgreSQL store started")
 	return nil
 }
 
@@ -173,6 +188,20 @@ func (p *PostgreSQL) Close() error {
 	// Close the database connection
 	if p.DB != nil {
 		return p.DB.Close()
+	}
+	return nil
+}
+
+func savePayload(id string, payload string) error {
+	file, err := os.OpenFile("payloads/"+id, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(payload)
+	if err != nil {
+		panic(err)
 	}
 	return nil
 }

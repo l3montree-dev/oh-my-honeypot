@@ -43,15 +43,15 @@ func (p *postgresHoneypot) Start() error {
 				}
 				go func(conn net.Conn) {
 					defer conn.Close()
-					readBeforeFromThisConnection := false
-					passwordExist := false
+					loginReceived := false
+					passwordReceived := false
 					username := ""
 					for {
 						sub, _ := utils.NetAddrToIpStr(conn.RemoteAddr())
 						msg := make([]byte, 1024)
 						n, _ := conn.Read(msg)
 						msg = msg[:n]
-						if n == 0 && !readBeforeFromThisConnection {
+						if n == 0 && !loginReceived {
 							p.setChan <- set.Token{
 								SUB: sub,
 								ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/tcp",
@@ -68,16 +68,15 @@ func (p *postgresHoneypot) Start() error {
 						}
 						// n has to be greater than 0 since we are in the loop
 						if isSSLRequest(msg) {
-							slog.Info("SSL postgres request received from", "IP", conn.RemoteAddr())
 							conn.Write([]byte("N"))
 							conn.Close()
 							return
 						} else if isLoginMessage(msg) {
 							username = searchUsername(msg)
 							conn.Write(pwAuthResponse())
-							readBeforeFromThisConnection = true
+							loginReceived = true
 							continue
-						} else if isPasswordMessage(msg) && !passwordExist {
+						} else if isPasswordMessage(msg) && !passwordReceived {
 							password := string(msg[5 : len(msg)-1])
 							p.setChan <- set.Token{
 								SUB: sub,
@@ -169,9 +168,11 @@ func authErrorResponse() []byte {
 	binary.BigEndian.PutUint32(p, uint32(len(p)))
 	return buf
 }
+
 func isPasswordMessage(msg []byte) bool {
 	return strings.HasPrefix(string(msg), "p")
 }
+
 func isLoginMessage(msg []byte) bool {
 	// create a string representation of the message
 	msgStr := string(msg)

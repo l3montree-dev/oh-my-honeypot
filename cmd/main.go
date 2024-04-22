@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"time"
 
 	"github.com/lmittmann/tint"
 	"gitlab.com/neuland-homeland/honeypot/packages/dbip"
@@ -29,7 +30,7 @@ func main() {
 	}
 
 	httpHoneypot := honeypot.NewHTTP(honeypot.HTTPConfig{
-		Port: 8080,
+		Port: 80,
 	})
 
 	err = httpHoneypot.Start()
@@ -38,7 +39,7 @@ func main() {
 	}
 
 	postgresHoneypot := honeypot.NewPostgres(honeypot.PostgresConfig{
-		Port: 5555,
+		Port: 5432,
 	})
 
 	err = postgresHoneypot.Start()
@@ -47,9 +48,8 @@ func main() {
 	}
 
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
-		Port: 2021,
+		Port: 22,
 	})
-
 	err = sshHoneypot.Start()
 	if err != nil {
 		panic(err)
@@ -67,29 +67,30 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	/*
-		lifoStore := store.NewTimeLifo[set.Token](time.Duration(24 * time.Hour))
-		// create a file decorator to persist the data
-		file, err := os.OpenFile("events.log", os.O_CREATE|os.O_RDWR, 0644)
-		if err != nil {
-			panic(err)
-		}
 
-		fileStore := store.NewFileDecorator[set.Token](
-			file,
-			store.NewJSONSerializer[set.Token](),
-			lifoStore,
-		)
+	lifoStore := store.NewTimeLifo[set.Token](time.Duration(24 * time.Hour))
+	// create a file decorator to persist the data
+	file, err := os.OpenFile("events.log", os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		panic(err)
+	}
 
-		httpTransport := transport.NewHTTP(transport.HTTPConfig{
-			Port: 1112,
-			// initializes the http transport with the lifo store
-			Store: fileStore,
-		})*/
+	fileStore := store.NewFileDecorator[set.Token](
+		file,
+		store.NewJSONSerializer[set.Token](),
+		lifoStore,
+	)
+
+	httpTransport := transport.NewHTTP(transport.HTTPConfig{
+		Port: 1112,
+		// initializes the http transport with the lifo store
+		Store: fileStore,
+	})
+
 	socketioTransport := transport.NewSocketIO(transport.SocketIOConfig{
 		Port: 1113,
 	})
-	//httpChan := httpTransport.Listen()
+	httpChan := httpTransport.Listen()
 	socketioChan := socketioTransport.Listen()
 
 	dbIp := dbip.NewIpToCountry("dbip-country.csv")
@@ -101,8 +102,8 @@ func main() {
 		input.COUNTRY = dbIp.Lookup(net.ParseIP(input.SUB))
 		return input, nil
 	})
-	//postgresqlDB.DBStore(setChannel)
-	pipeline.Broadcast(setChannel, socketioChan, dbChan)
+
+	pipeline.Broadcast(setChannel, socketioChan, httpChan, dbChan)
 	forever := make(chan bool)
 	<-forever
 }
