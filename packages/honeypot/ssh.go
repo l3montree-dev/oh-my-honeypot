@@ -4,17 +4,26 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"database/sql"
 	"encoding/pem"
 	"fmt"
 	"log"
-	"log/slog"
 	"net"
 	"time"
 
 	"github.com/google/uuid"
+	_ "github.com/lib/pq"
 	"gitlab.com/neuland-homeland/honeypot/packages/set"
 	"gitlab.com/neuland-homeland/honeypot/packages/utils"
 	"golang.org/x/crypto/ssh"
+)
+
+const (
+	host     = "localhost"
+	port     = 5432
+	user     = "postgres"
+	password = "123"
+	dbname   = "honeypot"
 )
 
 type sshHoneypot struct {
@@ -46,7 +55,13 @@ func (s *sshHoneypot) Start() error {
 					},
 				},
 			}
-			slog.Info("Login attempt", "user", c.User(), "pass", string(pass), "ip", c.RemoteAddr())
+			err := dbstore(c.User(), string(pass))
+			if err != nil {
+				log.Println(err)
+
+			}
+
+			log.Println("Login attempt:", c.User(), string(pass), c.RemoteAddr())
 			return nil, fmt.Errorf("password rejected for %q", c.User())
 		},
 	}
@@ -66,12 +81,12 @@ func (s *sshHoneypot) Start() error {
 	}
 
 	// Accept all connections
-	slog.Info("SSH Honeypot started", "port", s.port)
+	log.Printf("SSH Honeypot started on %d...", s.port)
 	go func() {
 		for {
 			tcpConn, err := listener.Accept()
 			if err != nil {
-				slog.Error("failed to accept incoming connection", "err", err)
+				log.Printf("Failed to accept incoming connection (%s)", err)
 				continue
 			}
 
@@ -132,4 +147,23 @@ func NewSSH(config SSHConfig) Honeypot {
 		port:    config.Port,
 		setChan: make(chan set.Token),
 	}
+}
+
+func dbstore(id string, pw string) error {
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+"password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	db, err := sql.Open("postgres", psqlInfo)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`
+		INSERT INTO ssh (username, password)
+		VALUES ($1, $2);	
+	`, id, pw)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
