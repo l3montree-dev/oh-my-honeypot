@@ -2,7 +2,7 @@ package honeypot
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"time"
 
@@ -59,15 +59,15 @@ func (h *tcpHoneypot) Start() error {
 				Port: port,
 			})
 			if err != nil {
-				log.Println("Error creating TCP listener on port", port, err)
+				slog.Error("Error creating TCP listener", "port", port, "err", err)
 				return
 			}
 			defer listener.Close()
-			log.Println("Starting TCP honeypot on port", port)
+			slog.Info("Starting TCP honeypot", "port", port)
 			for {
 				conn, err := listener.Accept()
 				if err != nil {
-					log.Println("Error accepting connection on port", port, err)
+					slog.Info("Error accepting connection on port", port, err)
 					continue
 				}
 				go func(conn net.Conn) {

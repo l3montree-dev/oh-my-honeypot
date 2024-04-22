@@ -1,10 +1,12 @@
 package main
 
 import (
+	"log/slog"
 	"net"
 	"os"
 	"time"
 
+	"github.com/lmittmann/tint"
 	"gitlab.com/neuland-homeland/honeypot/packages/dbip"
 	"gitlab.com/neuland-homeland/honeypot/packages/honeypot"
 	"gitlab.com/neuland-homeland/honeypot/packages/pipeline"
@@ -14,7 +16,7 @@ import (
 )
 
 func main() {
-
+	InitLogger()
 	postgresqlDB := store.PostgreSQL{
 		Host:     "localhost",
 		Port:     5432,
@@ -29,7 +31,7 @@ func main() {
 	}
 
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
-		Port: 22,
+		Port: 2022,
 	})
 
 	err = sshHoneypot.Start()
@@ -75,15 +77,24 @@ func main() {
 	socketioChan := socketioTransport.Listen()
 
 	dbIp := dbip.NewIpToCountry("dbip-country.csv")
+	dbChan := postgresqlDB.Listen()
 
 	// listen for SET events
 	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), tcpHoneypot.GetSETChannel(), udpHoneypot.GetSETChannel()), func(input set.Token) (set.Token, error) {
 		input.COUNTRY = dbIp.Lookup(net.ParseIP(input.SUB))
 		return input, nil
 	})
-
-	postgresqlDB.DBStore(setChannel)
-	pipeline.Broadcast(setChannel, httpChan, socketioChan)
+	//postgresqlDB.DBStore(setChannel)
+	pipeline.Broadcast(setChannel, httpChan, socketioChan, dbChan)
 	forever := make(chan bool)
 	<-forever
+}
+
+func InitLogger() {
+	loggingHandler := tint.NewHandler(os.Stdout, &tint.Options{
+		AddSource: true,
+		Level:     slog.LevelDebug,
+	})
+	logger := slog.New(loggingHandler)
+	slog.SetDefault(logger)
 }

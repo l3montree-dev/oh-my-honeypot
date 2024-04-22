@@ -1,7 +1,7 @@
 package pipeline
 
 import (
-	"log"
+	"log/slog"
 	"time"
 )
 
@@ -45,7 +45,7 @@ func Broadcast[T any](input <-chan T, outputs ...chan<- T) {
 				case output <- msg:
 				default:
 					// just swallow the error
-					log.Println("could not write to channel")
+					slog.Info("could not write to channel")
 				}
 			}
 		}
@@ -59,7 +59,7 @@ func Map[T any, R any](input <-chan T, transformFn func(input T) (R, error)) <-c
 			tmp, err := transformFn(msg)
 			if err != nil {
 				// just swallow the error
-				log.Println(err)
+				slog.Error("could not map", "err", err)
 				continue
 			}
 			output <- tmp
