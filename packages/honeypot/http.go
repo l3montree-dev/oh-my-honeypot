@@ -25,7 +25,8 @@ type HTTPConfig struct {
 }
 
 func (h *httpHoneypot) Start() error {
-	http.HandleFunc("/{path...}", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
 		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
 		sub, _ := utils.NetAddrToIpStr(remoteAddr)
@@ -59,7 +60,7 @@ func (h *httpHoneypot) Start() error {
 	slog.Info("HTTP Honeypot started", "port", h.port)
 	go func() {
 		for {
-			err := http.ListenAndServe(":80", nil)
+			err := http.ListenAndServe(":80", mux)
 			if err != nil {
 				slog.Error("Error starting HTTP server", "port", h.port, "err", err)
 				continue

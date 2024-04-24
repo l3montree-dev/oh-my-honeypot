@@ -61,7 +61,9 @@ func (h *httpTransport) Listen() chan<- set.Token {
 		}
 	}()
 
-	http.Handle("/hello", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			// check if the request would like a json or a csv response - default is json
 			// but csv is much smaller
@@ -78,7 +80,7 @@ func (h *httpTransport) Listen() chan<- set.Token {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}))
 
-	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), nil)
+	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux)
 	slog.Info("HTTP transport listening", "port", h.port)
 
 	return listener
