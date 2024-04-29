@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2019-09/schema",
-    "$id": "https://gitlab.com/neuland-homeland/honeypot/json-schema/http-port.json",
+    "$id": "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/http-request.json",
     "type": "object",
     "default": {},
     "title": "Root Schema",
@@ -18,6 +18,22 @@
                 "8080"
             ]
         },
+        "path": {
+            "type": "string",
+            "default": "",
+            "title": "URL path",
+            "examples": [
+                "/index.html"
+            ]
+        },
+        "method": {
+            "type": "string",
+            "default": "",
+            "title": "The HTTP method",
+            "examples": [
+                "GET"
+            ]
+        },
         "acpt-language": {
             "type": "string",
             "default": "",
@@ -32,6 +48,14 @@
             "title": "The user agent",
             "examples": [
                 "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)"
+            ]
+        },
+        "content-type": {
+            "type": "string",
+            "default": "",
+            "title": "The content type",
+            "examples": [
+                "text/html"
             ]
         }
     }

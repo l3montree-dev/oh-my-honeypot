@@ -6,7 +6,7 @@ import (
 	"net"
 	"os"
 
-	"gitlab.com/neuland-homeland/honeypot/packages/utils"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 )
 
 func IP2int(ip net.IP) int64 {

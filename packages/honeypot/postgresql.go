@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gitlab.com/neuland-homeland/honeypot/packages/set"
-	"gitlab.com/neuland-homeland/honeypot/packages/utils"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 )
 
 type postgresHoneypot struct {
@@ -54,7 +54,7 @@ func (p *postgresHoneypot) Start() error {
 						if n == 0 && !loginReceived {
 							p.setChan <- set.Token{
 								SUB: sub,
-								ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/tcp",
+								ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/tcp",
 								IAT: time.Now().Unix(),
 								JTI: uuid.New().String(),
 								TOE: time.Now().Unix(),
@@ -80,7 +80,7 @@ func (p *postgresHoneypot) Start() error {
 							password := string(msg[5 : len(msg)-1])
 							p.setChan <- set.Token{
 								SUB: sub,
-								ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/http",
+								ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
 								IAT: time.Now().Unix(),
 								JTI: uuid.New().String(),
 								TOE: time.Now().Unix(),

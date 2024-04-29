@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gitlab.com/neuland-homeland/honeypot/packages/set"
-	"gitlab.com/neuland-homeland/honeypot/packages/utils"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -26,8 +26,6 @@ type SSHConfig struct {
 	Port int
 }
 
-var isLoginattempt bool
-
 func (s *sshHoneypot) Start() error {
 	config := &ssh.ServerConfig{
 		//Define a function to run when a client attempts a password login
@@ -36,7 +34,7 @@ func (s *sshHoneypot) Start() error {
 			sub, _ := utils.NetAddrToIpStr(c.RemoteAddr())
 			s.setChan <- set.Token{
 				SUB: sub,
-				ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/ssh",
+				ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/ssh",
 				IAT: time.Now().Unix(),
 				JTI: uuid.New().String(),
 				TOE: time.Now().Unix(),
@@ -49,7 +47,6 @@ func (s *sshHoneypot) Start() error {
 					},
 				},
 			}
-			isLoginattempt = true
 			slog.Info("Login attempt", "user", c.User(), "pass", string(pass), "ip", c.RemoteAddr())
 			return nil, fmt.Errorf("password rejected for %q", c.User())
 		},
@@ -87,15 +84,11 @@ func (s *sshHoneypot) handeConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 	// just perform the handshake
 	defer tcpConn.Close()
 	_, _, _, err := ssh.NewServerConn(tcpConn, config)
-	//if it was a login attempt,
-	if isLoginattempt && err != nil {
-		return
-	}
 	sub, _ := utils.NetAddrToIpStr(tcpConn.RemoteAddr())
 	//send the token for port scanning attack
 	s.setChan <- set.Token{
 		SUB: sub,
-		ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/ssh",
+		ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/ssh",
 		IAT: time.Now().Unix(),
 		JTI: uuid.New().String(),
 		TOE: time.Now().Unix(),

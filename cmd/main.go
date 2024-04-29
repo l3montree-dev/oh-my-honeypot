@@ -1,30 +1,45 @@
 package main
 
 import (
+	"log"
 	"log/slog"
 	"net"
 	"os"
+	"strconv"
 	"time"
 
+	"github.com/joho/godotenv"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/dbip"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/honeypot"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/pipeline"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/store"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/transport"
 	"github.com/lmittmann/tint"
-	"gitlab.com/neuland-homeland/honeypot/packages/dbip"
-	"gitlab.com/neuland-homeland/honeypot/packages/honeypot"
-	"gitlab.com/neuland-homeland/honeypot/packages/pipeline"
-	"gitlab.com/neuland-homeland/honeypot/packages/set"
-	"gitlab.com/neuland-homeland/honeypot/packages/store"
-	"gitlab.com/neuland-homeland/honeypot/packages/transport"
 )
 
 func main() {
 	InitLogger()
-	postgresqlDB := store.PostgreSQL{
-		Host:     "localhost",
-		Port:     5423,
-		User:     "postgres",
-		Password: "1234",
-		DBName:   "honeypot",
+
+	// Load the .env file
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatalf("Error loading .env file: %s", err)
 	}
-	err := postgresqlDB.Start()
+	// Get the port from the .env file as integer
+	portInt, err := strconv.Atoi(os.Getenv("PORT"))
+	if err != nil {
+		panic(err)
+	}
+
+	postgresqlDB := store.PostgreSQL{
+		Host:     string(os.Getenv("DB_HOST")),
+		Port:     portInt,
+		User:     string(os.Getenv("USERNAME")),
+		Password: string(os.Getenv("PASSWORD")),
+		DBName:   string(os.Getenv("DB_NAME")),
+	}
+	err = postgresqlDB.Start()
 	if err != nil {
 		panic(err)
 	}
@@ -32,7 +47,6 @@ func main() {
 	httpHoneypot := honeypot.NewHTTP(honeypot.HTTPConfig{
 		Port: 80,
 	})
-
 	err = httpHoneypot.Start()
 	if err != nil {
 		panic(err)
@@ -41,7 +55,6 @@ func main() {
 	postgresHoneypot := honeypot.NewPostgres(honeypot.PostgresConfig{
 		Port: 5432,
 	})
-
 	err = postgresHoneypot.Start()
 	if err != nil {
 		panic(err)

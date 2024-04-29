@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gitlab.com/neuland-homeland/honeypot/packages/set"
-	"gitlab.com/neuland-homeland/honeypot/packages/utils"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 )
 
 func MostUsedTCPPorts() []int {
@@ -73,7 +73,7 @@ func (h *tcpHoneypot) Start() error {
 					sub, _ := utils.NetAddrToIpStr(conn.RemoteAddr())
 					h.setChan <- set.Token{
 						SUB: sub,
-						ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/tcp",
+						ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/tcp",
 						IAT: time.Now().Unix(),
 						JTI: uuid.New().String(),
 						TOE: time.Now().Unix(),

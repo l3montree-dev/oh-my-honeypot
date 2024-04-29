@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gitlab.com/neuland-homeland/honeypot/packages/set"
-	"gitlab.com/neuland-homeland/honeypot/packages/utils"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 )
 
 type httpHoneypot struct {
@@ -35,7 +35,7 @@ func (h *httpHoneypot) Start() error {
 		defer r.Body.Close()
 		h.setChan <- set.Token{
 			SUB: sub,
-			ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/tcp",
+			ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/tcp",
 			IAT: time.Now().Unix(),
 			JTI: uuid.New().String(),
 			TOE: time.Now().Unix(),
@@ -52,6 +52,7 @@ func (h *httpHoneypot) Start() error {
 				},
 			},
 		}
+		// Set the headers to make the honeypot look like an vulnerable server
 		w.Header().Set("Server", "Apache/2.2.3 (Ubuntu)")
 		w.Header().Set("X-Powered-By", "PHP/4.1.0")
 		fmt.Fprint(w, "Hello")
@@ -70,6 +71,7 @@ func (h *httpHoneypot) Start() error {
 	return nil
 }
 
+// split splits the useragent string into 3 parts.
 func split(useragent string) []string {
 	splitUserAgent := strings.Split(strings.ReplaceAll(useragent, ") ", ")\n"), "\n")
 	if len(splitUserAgent) != 3 {

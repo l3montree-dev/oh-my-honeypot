@@ -4,7 +4,7 @@ import (
 	"net"
 	"testing"
 
-	"gitlab.com/neuland-homeland/honeypot/packages/dbip"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/dbip"
 )
 
 func TestLookup1(t *testing.T) {

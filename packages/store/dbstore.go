@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/l3montree-dev/oh-my-honeypot/packages/honeypot"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
 	_ "github.com/lib/pq"
-	"gitlab.com/neuland-homeland/honeypot/packages/honeypot"
-	"gitlab.com/neuland-homeland/honeypot/packages/set"
 )
 
 type PostgreSQL struct {
@@ -33,41 +33,44 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 				var attackType string
 				timestamp := int64(input.TOE)
 				timeObj := time.Unix(timestamp, 0)
-				if input.Events[honeypot.PortEventID] != nil {
-					port = input.Events[honeypot.PortEventID]["port"].(int)
+				if portEvent, ok := input.Events[honeypot.PortEventID]; ok {
+					port = portEvent["port"].(int)
 					attackType = "Port Scanning"
 				}
-				if input.Events[honeypot.LoginEventID] != nil {
-					attackType = "Login Attempt"
-					port = input.Events[honeypot.LoginEventID]["port"].(int)
-					username := input.Events[honeypot.LoginEventID]["username"].(string)
-					password := input.Events[honeypot.LoginEventID]["password"].(string)
-					service := input.Events[honeypot.LoginEventID]["service"].(string)
-					defer p.loginattInsert(input.JTI, service, username, password)
+				if loginEvent, ok := input.Events[honeypot.LoginEventID]; ok {
+					port = loginEvent["port"].(int)
+					username := loginEvent["username"].(string)
+					password := loginEvent["password"].(string)
+					service := loginEvent["service"].(string)
+
+					defer p.loginAttemptInsert(input.JTI, service, username, password)
 				}
-				if input.Events[honeypot.HTTPEventID] != nil {
+				if httpEvent, ok := input.Events[honeypot.HTTPEventID]; ok {
 					attackType = "HTTP Request"
-					method := input.Events[honeypot.HTTPEventID]["method"].(string)
-					path := input.Events[honeypot.HTTPEventID]["path"].(string)
-					port = input.Events[honeypot.HTTPEventID]["port"].(int)
-					acceptLanguage := input.Events[honeypot.HTTPEventID]["accept-lang"].(string)
-					useragent := input.Events[honeypot.HTTPEventID]["user-agent"].([]string)
+					method := httpEvent["method"].(string)
+					path := httpEvent["path"].(string)
+					port = httpEvent["port"].(int)
+					acceptLanguage := httpEvent["accept-lang"].(string)
+					useragent := httpEvent["user-agent"].([]string)
+					//store the payload if the method is POST, PUT or PATCH
 					if method == "POST" || method == "PUT" || method == "PATCH" {
-						payloadSize := input.Events[honeypot.HTTPEventID]["bodysize"].(int)
+						payloadSize := httpEvent["bodysize"].(int)
 						maxSize := int64(100 * 1024 * 1024)
-						//Payload size should be greater than 100MB
+						//store the payload if it is less than 100MB
 						if payloadSize < int(maxSize) {
 							attackID := input.JTI
-							payload := input.Events[honeypot.HTTPEventID]["body"].(string)
+							payload := httpEvent["body"].(string)
 							savePayload(attackID, payload)
 						} else {
 							slog.Info("Payload size is greater than 100MB")
 						}
-						contentType := input.Events[honeypot.HTTPEventID]["content-type"].(string)
+						//store the content type and payload size
+						contentType := httpEvent["content-type"].(string)
 						defer p.bodyInsert(input.JTI, method, contentType, strconv.Itoa(payloadSize)+" bytes")
 					}
 					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent)
 				}
+				// Insert the basic information about all attacks into the database
 				p.attackInsert(input.JTI, timeObj, port, input.SUB, input.COUNTRY, attackType)
 			}()
 		}
@@ -86,7 +89,7 @@ func (p *PostgreSQL) attackInsert(attackID string, time time.Time, port int, ip 
 	}
 }
 
-func (p *PostgreSQL) loginattInsert(attackID string, service string, username string, password string) {
+func (p *PostgreSQL) loginAttemptInsert(attackID string, service string, username string, password string) {
 	_, err := p.DB.Exec(`
 	INSERT INTO login_attempt (Attack_ID,service,Username,Password)
 	VALUES ($1, $2, $3,$4)
