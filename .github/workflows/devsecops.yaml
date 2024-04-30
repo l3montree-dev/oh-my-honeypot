@@ -10,6 +10,8 @@ on:
     tags:
     - '*'
 
+permissions: read-all
+
 # Environment variables used across multiple jobs
 env:
   IMAGE_TAG: ghcr.io/${{ github.repository }}:unstable

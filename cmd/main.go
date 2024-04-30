@@ -33,9 +33,10 @@ func main() {
 	}
 
 	postgresqlDB := store.PostgreSQL{
-		Host:     string(os.Getenv("POSTGRES_HOST")),
-		Port:     portInt,
-		User:     string(os.Getenv("POSTGRES_USER")),
+		Host: string(os.Getenv("POSTGRES_HOST")),
+		Port: portInt,
+		User: string(os.Getenv("POSTGRES_USER")),
+		// checkov:skip=CKV_SECRET_6 // False Positive
 		Password: string(os.Getenv("POSTGRES_PASSWORD")),
 		DBName:   string(os.Getenv("POSTGRES_DB")),
 	}
