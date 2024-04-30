@@ -347,6 +347,6 @@ jobs:
     - name: Write signing key to disk (only needed for `cosign sign --key`)
       run: echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
     - name: Sign SBOM
-      run: cosign attest --predicate ./sbom.json --key cosign.key "$(cat image-tag.txt)@$(cat digest.txt)"
+      run: cosign attest --yes --predicate ./sbom.json --key cosign.key "$(cat image-tag.txt)@$(cat digest.txt)"
       env:
         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
