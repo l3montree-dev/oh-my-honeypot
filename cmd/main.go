@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"log/slog"
 	"net"
 	"os"
@@ -24,7 +23,7 @@ func main() {
 	// Load the .env file
 	err := godotenv.Load(".env")
 	if err != nil {
-		log.Fatalf("Error loading .env file: %s", err)
+		slog.Warn("Error loading .env file: %s", err)
 	}
 	// Get the port from the .env file as integer
 	portInt, err := strconv.Atoi(os.Getenv("POSTGRES_PORT"))
