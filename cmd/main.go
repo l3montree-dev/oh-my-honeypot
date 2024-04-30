@@ -81,7 +81,7 @@ func main() {
 		panic(err)
 	}
 
-	lifoStore := store.NewTimeLifo[set.Token](time.Duration(24 * time.Hour))
+	fifoStore := store.NewTimefifo[set.Token](time.Duration(24 * time.Hour))
 	// create a file decorator to persist the data
 	file, err := os.OpenFile("events.log", os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
@@ -91,12 +91,12 @@ func main() {
 	fileStore := store.NewFileDecorator[set.Token](
 		file,
 		store.NewJSONSerializer[set.Token](),
-		lifoStore,
+		fifoStore,
 	)
 
 	httpTransport := transport.NewHTTP(transport.HTTPConfig{
 		Port: 1112,
-		// initializes the http transport with the lifo store
+		// initializes the http transport with the fifo store
 		Store: fileStore,
 	})
 
