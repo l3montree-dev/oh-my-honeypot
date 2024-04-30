@@ -316,6 +316,8 @@ jobs:
 
   sign-sbom:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     needs: publish
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     steps:
