@@ -231,6 +231,8 @@ jobs:
   publish:
     needs: [build-image, image-scanning, secret-scanning, sca, sast, iac]
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     steps:
     - uses: actions/download-artifact@v4
@@ -263,7 +265,7 @@ jobs:
     - name: Download artifact from previous build
       uses: actions/download-artifact@v4
       with:
-        name: image.tar # Make sure this matches the artifact name from 'oci-build'
+        name: docker-image
     - name: Generate SBOM with Syft
       run: syft ./image.tar -o cyclonedx-json=sbom.json
     - name: Upload SBOM as an artifact
