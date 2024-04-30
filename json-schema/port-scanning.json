@@ -1,12 +1,11 @@
 {
     "$schema": "https://json-schema.org/draft/2019-09/schema",
-    "$id": "https://gitlab.com/neuland-homeland/honeypot/json-schema/http-port.json",
+    "$id": "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/http-port.json",
     "type": "object",
     "default": {},
     "title": "Root Schema",
     "required": [
-        "port",
-        "user-agent"
+        "port"
     ],
     "properties": {
         "port": {
@@ -15,14 +14,6 @@
             "title": "The port which got scanned",
             "examples": [
                 "8080"
-            ]
-        },
-        "user-agent": {
-            "type": "string",
-            "default": "",
-            "title": "The user agent",
-            "examples": [
-                "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)"
             ]
         }
     }

@@ -1,29 +1,26 @@
 package honeypot
 
 import (
-	"fmt"
-	"log"
 	"log/slog"
 	"net"
 	"time"
 
 	"github.com/google/uuid"
-	"gitlab.com/neuland-homeland/honeypot/packages/set"
-	"gitlab.com/neuland-homeland/honeypot/packages/utils"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 )
 
 func MostUsedTCPPorts() []int {
 	return []int{
+		//Most used TCP 20ports
 		21,    // FTP
 		23,    // Telnet
 		25,    // SMTP
 		53,    // DNS
-		80,    // HTTP
 		88,    // Kerberos
 		110,   // POP3
 		143,   // IMAP
 		389,   // LDAP
-		443,   // HTTPS
 		465,   // SMTPS
 		546,   // DHCPv6 Client
 		547,   // DHCPv6 Server
@@ -33,7 +30,6 @@ func MostUsedTCPPorts() []int {
 		993,   // IMAPS
 		995,   // POP3S
 		3306,  // MySQL
-		5432,  // PostgreSQL
 		8001,  // kubernetes dashboard default port
 		6443,  // kubernetes api server
 		2379,  // etcd
@@ -68,21 +64,22 @@ func (h *tcpHoneypot) Start() error {
 			for {
 				conn, err := listener.Accept()
 				if err != nil {
-					log.Println("Error accepting connection on port", port, err)
+					slog.Error("Error accepting connection on port", "port", port, "err", err)
 					continue
 				}
 				go func(conn net.Conn) {
 					defer conn.Close()
+
 					sub, _ := utils.NetAddrToIpStr(conn.RemoteAddr())
 					h.setChan <- set.Token{
 						SUB: sub,
-						ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/tcp",
+						ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/tcp",
 						IAT: time.Now().Unix(),
 						JTI: uuid.New().String(),
 						TOE: time.Now().Unix(),
 						Events: map[string]map[string]interface{}{
 							PortEventID: {
-								"port": fmt.Sprintf("%d", port),
+								"port": port,
 							},
 						},
 					}

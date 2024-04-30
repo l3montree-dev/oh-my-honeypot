@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2019-09/schema",
-    "$id": "https://gitlab.com/neuland-homeland/honeypot/json-schema/ssh-login-attempt.json",
+    "$id": "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/login-attempt.json",
     "type": "object",
     "default": {},
     "title": "Root Schema",

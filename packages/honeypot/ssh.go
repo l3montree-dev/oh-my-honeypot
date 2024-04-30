@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gitlab.com/neuland-homeland/honeypot/packages/set"
-	"gitlab.com/neuland-homeland/honeypot/packages/utils"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -22,7 +22,6 @@ type sshHoneypot struct {
 	// setChan is the channel the honeypot is posting SET events to.
 	setChan chan set.Token
 }
-
 type SSHConfig struct {
 	Port int
 }
@@ -35,14 +34,16 @@ func (s *sshHoneypot) Start() error {
 			sub, _ := utils.NetAddrToIpStr(c.RemoteAddr())
 			s.setChan <- set.Token{
 				SUB: sub,
-				ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot/ssh",
+				ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/ssh",
 				IAT: time.Now().Unix(),
 				JTI: uuid.New().String(),
 				TOE: time.Now().Unix(),
 				Events: map[string]map[string]interface{}{
-					SSHEventID: {
+					LoginEventID: {
 						"username": c.User(),
 						"password": string(pass),
+						"port":     s.GetPort(),
+						"service":  "ssh",
 					},
 				},
 			}
@@ -50,7 +51,6 @@ func (s *sshHoneypot) Start() error {
 			return nil, fmt.Errorf("password rejected for %q", c.User())
 		},
 	}
-
 	privateBytes := encodePrivateKeyToPEM(generatePrivateKey())
 	private, err := ssh.ParsePrivateKey(privateBytes)
 
@@ -74,23 +74,33 @@ func (s *sshHoneypot) Start() error {
 				slog.Error("failed to accept incoming connection", "err", err)
 				continue
 			}
-
-			go handeConn(tcpConn, config)
+			go s.handeConn(tcpConn, config)
 		}
 	}()
 	return nil
 }
 
-func handeConn(tcpConn net.Conn, config *ssh.ServerConfig) {
+func (s *sshHoneypot) handeConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 	// just perform the handshake
+	defer tcpConn.Close()
 	_, _, _, err := ssh.NewServerConn(tcpConn, config)
+	sub, _ := utils.NetAddrToIpStr(tcpConn.RemoteAddr())
+	//send the token for port scanning attack
+	s.setChan <- set.Token{
+		SUB: sub,
+		ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/ssh",
+		IAT: time.Now().Unix(),
+		JTI: uuid.New().String(),
+		TOE: time.Now().Unix(),
+		Events: map[string]map[string]interface{}{
+			PortEventID: {
+				"port": s.GetPort(),
+			},
+		},
+	}
 	if err != nil {
 		return
 	}
-}
-
-func (s *sshHoneypot) Stop() error {
-	return nil
 }
 
 func (s *sshHoneypot) GetPort() int {
@@ -126,7 +136,6 @@ func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 
 	return privatePEM
 }
-
 func NewSSH(config SSHConfig) Honeypot {
 	return &sshHoneypot{
 		port:    config.Port,

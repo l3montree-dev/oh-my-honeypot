@@ -45,7 +45,7 @@ func Broadcast[T any](input <-chan T, outputs ...chan<- T) {
 				case output <- msg:
 				default:
 					// just swallow the error
-					slog.Info("could not write to channel")
+					slog.Warn("could not write to channel")
 				}
 			}
 		}

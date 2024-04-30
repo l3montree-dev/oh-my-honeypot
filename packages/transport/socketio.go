@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	socketio "github.com/googollee/go-socket.io"
-	"gitlab.com/neuland-homeland/honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
 )
 
 type socketioTransport struct {

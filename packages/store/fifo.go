@@ -1,11 +1,11 @@
 package store
 
-type LIFO[T any] struct {
+type FIFO[T any] struct {
 	msgs []T
 	size int
 }
 
-func (l *LIFO[T]) Store(msg T) error {
+func (l *FIFO[T]) Store(msg T) error {
 	l.msgs = append(l.msgs, msg)
 	if len(l.msgs) > l.size {
 		l.msgs = l.msgs[1:]
@@ -13,16 +13,16 @@ func (l *LIFO[T]) Store(msg T) error {
 	return nil
 }
 
-func (l *LIFO[T]) Get() []T {
+func (l *FIFO[T]) Get() []T {
 	return l.msgs
 }
 
-func (l *LIFO[T]) Count() int {
+func (l *FIFO[T]) Count() int {
 	return len(l.msgs)
 }
 
-func NewLIFO[T any](size int) Store[T] {
-	return &LIFO[T]{
+func NewFIFO[T any](size int) Store[T] {
+	return &FIFO[T]{
 		msgs: make([]T, 0),
 		size: size,
 	}

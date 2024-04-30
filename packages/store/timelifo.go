@@ -21,13 +21,13 @@ type timedEntry[T Timed] struct {
 	time time.Time
 }
 
-type TimeLifo[T Timed] struct {
+type Timefifo[T Timed] struct {
 	msgs     []timedEntry[T]
 	duration time.Duration
 	msgsLock sync.Mutex
 }
 
-func (l *TimeLifo[T]) Store(msg T) error {
+func (l *Timefifo[T]) Store(msg T) error {
 	l.msgsLock.Lock()
 	defer l.msgsLock.Unlock()
 
@@ -35,7 +35,7 @@ func (l *TimeLifo[T]) Store(msg T) error {
 	return nil
 }
 
-func (l *TimeLifo[T]) Get() []T {
+func (l *Timefifo[T]) Get() []T {
 	l.msgsLock.Lock()
 	defer l.msgsLock.Unlock()
 
@@ -47,11 +47,11 @@ func (l *TimeLifo[T]) Get() []T {
 	return msgs
 }
 
-func (l *TimeLifo[T]) Count() int {
+func (l *Timefifo[T]) Count() int {
 	return len(l.msgs)
 }
 
-func (l *TimeLifo[T]) clean() {
+func (l *Timefifo[T]) clean() {
 	l.msgsLock.Lock()
 	defer l.msgsLock.Unlock()
 
@@ -61,14 +61,14 @@ func (l *TimeLifo[T]) clean() {
 		if now.Sub(msg.time) < l.duration {
 			// delete everything before i
 			l.msgs = l.msgs[i:]
-			slog.Info("cleaned messages from timeLifo", "amount", max(0, i-1))
+			slog.Info("cleaned messages from timefifo", "amount", max(0, i-1))
 			return
 		}
 	}
 }
 
-func NewTimeLifo[T Timed](duration time.Duration) Store[T] {
-	timeLifoStore := &TimeLifo[T]{
+func NewTimefifo[T Timed](duration time.Duration) Store[T] {
+	timefifoStore := &Timefifo[T]{
 		msgs:     make([]timedEntry[T], 0),
 		duration: duration,
 		msgsLock: sync.Mutex{},
@@ -77,9 +77,9 @@ func NewTimeLifo[T Timed](duration time.Duration) Store[T] {
 	ticker := time.NewTicker(10 * time.Second)
 	go func() {
 		for range ticker.C {
-			timeLifoStore.clean()
+			timefifoStore.clean()
 		}
 	}()
 
-	return timeLifoStore
+	return timefifoStore
 }

@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 
-	"gitlab.com/neuland-homeland/honeypot/packages/honeypot"
-	"gitlab.com/neuland-homeland/honeypot/packages/set"
-	"gitlab.com/neuland-homeland/honeypot/packages/store"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/honeypot"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/store"
 )
 
 type HTTPConfig struct {
@@ -20,19 +19,6 @@ type HTTPConfig struct {
 type httpTransport struct {
 	port  int
 	store store.Store[set.Token]
-}
-
-func getPort(token set.Token) int {
-	if token.Events[honeypot.SSHEventID] != nil {
-		return 22
-	} else if token.Events[honeypot.PortEventID] != nil {
-		port, err := strconv.Atoi(token.Events[honeypot.PortEventID]["port"].(string))
-		if err != nil {
-			return 0
-		}
-		return port
-	}
-	return 0
 }
 
 func marshalMsgs(r *http.Request, msgs []set.Token) ([]byte, error) {
@@ -61,7 +47,8 @@ func (h *httpTransport) Listen() chan<- set.Token {
 		}
 	}()
 
-	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			// check if the request would like a json or a csv response - default is json
 			// but csv is much smaller
@@ -78,7 +65,7 @@ func (h *httpTransport) Listen() chan<- set.Token {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}))
 
-	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), nil)
+	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux)
 	slog.Info("HTTP transport listening", "port", h.port)
 
 	return listener
@@ -89,4 +76,13 @@ func NewHTTP(config HTTPConfig) Transport {
 		port:  config.Port,
 		store: config.Store,
 	}
+}
+
+func getPort(input set.Token) int {
+	if portEvent, ok := input.Events[honeypot.PortEventID]; ok {
+		return portEvent["port"].(int)
+	} else if loginEvent, ok := input.Events[honeypot.LoginEventID]; ok {
+		return loginEvent["port"].(int)
+	}
+	return input.Events[honeypot.LoginEventID]["port"].(int)
 }

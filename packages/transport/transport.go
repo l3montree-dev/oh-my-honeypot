@@ -1,6 +1,6 @@
 package transport
 
-import "gitlab.com/neuland-homeland/honeypot/packages/set"
+import "github.com/l3montree-dev/oh-my-honeypot/packages/set"
 
 type Transport interface {
 	// listen to incoming connections.

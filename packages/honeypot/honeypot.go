@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gitlab.com/neuland-homeland/honeypot/packages/set"
-	"gitlab.com/neuland-homeland/honeypot/packages/utils"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 )
 
 const (
-	SSHEventID  = "https://gitlab.com/neuland-homeland/honeypot/json-schema/ssh-login-attempt.json"
-	PortEventID = "https://gitlab.com/neuland-homeland/honeypot/json-schema/port"
+	PortEventID  = "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/port-scanning.json"
+	LoginEventID = "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/ssh-login-attempt.json"
+	HTTPEventID  = "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/http-request.json"
 )
 
 type Honeypot interface {
@@ -31,7 +32,7 @@ func DetectPortScan(tokens []set.Token) []set.Token {
 		if _, ok := subCount[token.SUB]; !ok {
 			subCount[token.SUB] = make([]int, 0)
 		}
-		portStr := token.Events["https://gitlab.com/neuland-homeland/honeypot/json-schema/port"]["port"].(string)
+		portStr := token.Events["https://github.com/l3montree-dev/oh-my-honeypot/json-schema/port"]["port"].(string)
 		port, _ := strconv.Atoi(portStr)
 		subCount[token.SUB] = append(subCount[token.SUB], port)
 	}
@@ -52,12 +53,12 @@ func DetectPortScan(tokens []set.Token) []set.Token {
 			})
 			tokens = append(tokens, set.Token{
 				SUB: sub,
-				ISS: "gitlab.com/neuland-homeland/honeypot/packages/honeypot",
+				ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot",
 				IAT: time.Now().Unix(),
 				JTI: uuid.New().String(),
 				TOE: time.Now().Unix(),
 				Events: map[string]map[string]interface{}{
-					"https://gitlab.com/neuland-homeland/honeypot/json-schema/port-scan": {
+					"https://github.com/l3montree-dev/oh-my-honeypot/json-schema/port-scan": {
 						"ports": ports,
 					},
 				},

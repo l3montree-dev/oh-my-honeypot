@@ -43,6 +43,7 @@ func NewFileDecorator[T any](file *os.File, serializer Serializer[T], store Stor
 		if err != nil {
 			panic(err)
 		}
+
 		middleware.store.Store(msg)
 	}
 
