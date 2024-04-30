@@ -52,6 +52,20 @@ jobs:
       with:
         sarif_file: "trivy-results.sarif"
         category: "sca"
+  iac:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.8
+    - name: Test with Checkov
+      id: checkov
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: .
+
 
   # Static Application Security Testing (SAST) to identify security vulnerabilities in source code
   sast:

@@ -15,5 +15,8 @@ COPY --from=build-env /go/src/app/honeypot /go/src/app/honeypot
 COPY --from=build-env /go/src/app/dbip-country.csv /go/src/app/dbip-country.csv
 WORKDIR /go/src/app
 
+RUN useradd -m appuser
+USER appuser
+
 CMD ["./honeypot"]
 
