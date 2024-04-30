@@ -40,13 +40,12 @@ func Filter[T any](input <-chan T, filterFn func(input T) bool) <-chan T {
 func Broadcast[T any](input <-chan T, outputs ...chan<- T) {
 	go func() {
 		for msg := range input {
-			slog.Info("broadcasting", "msg", msg)
 			for _, output := range outputs {
 				select {
 				case output <- msg:
 				default:
 					// just swallow the error
-					slog.Info("could not write to channel")
+					slog.Warn("could not write to channel")
 				}
 			}
 		}

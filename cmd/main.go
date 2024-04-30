@@ -27,17 +27,17 @@ func main() {
 		log.Fatalf("Error loading .env file: %s", err)
 	}
 	// Get the port from the .env file as integer
-	portInt, err := strconv.Atoi(os.Getenv("PORT"))
+	portInt, err := strconv.Atoi(os.Getenv("POSTGRES_PORT"))
 	if err != nil {
 		panic(err)
 	}
 
 	postgresqlDB := store.PostgreSQL{
-		Host:     string(os.Getenv("DB_HOST")),
+		Host:     string(os.Getenv("POSTGRES_HOST")),
 		Port:     portInt,
-		User:     string(os.Getenv("USERNAME")),
-		Password: string(os.Getenv("PASSWORD")),
-		DBName:   string(os.Getenv("DB_NAME")),
+		User:     string(os.Getenv("POSTGRES_USER")),
+		Password: string(os.Getenv("POSTGRES_PASSWORD")),
+		DBName:   string(os.Getenv("POSTGRES_DB")),
 	}
 	err = postgresqlDB.Start()
 	if err != nil {
