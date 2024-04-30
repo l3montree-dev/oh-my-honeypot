@@ -10,6 +10,9 @@ on:
     tags:
     - '*'
 
+permissions:
+  contents: read
+
 # Environment variables used across multiple jobs
 env:
   IMAGE_TAG: ghcr.io/${{ github.repository }}:unstable
@@ -19,6 +22,8 @@ jobs:
   # Secret scanning job to detect secrets in codebase
   secret-scanning:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v4 # Check out the repository content to the runner
@@ -35,6 +40,8 @@ jobs:
   # Software Composition Analysis (SCA) to find vulnerabilities in project dependencies
   sca:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -52,10 +59,26 @@ jobs:
       with:
         sarif_file: "trivy-results.sarif"
         category: "sca"
+  iac:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.8
+    - name: Test with Checkov
+      id: checkov
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: .
+
 
   # Static Application Security Testing (SAST) to identify security vulnerabilities in source code
   sast:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -84,7 +107,7 @@ jobs:
         # Require: The version of golangci-lint to use.
         # When `install-mode` is `binary` (default) the value can be v1.2 or v1.2.3 or `latest` to use the latest version.
         # When `install-mode` is `goinstall` the value can be v1.2.3, `latest`, or the hash of a commit.
-        version: v1.54
+        version: v1.56.1
 
         # Optional: working directory, useful for monorepos
         # working-directory: somedir
@@ -127,6 +150,8 @@ jobs:
       run: go test ./... -cover
   # Docker image build job
   build-image:
+    permissions:
+      packages: write
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     steps:
@@ -178,6 +203,8 @@ jobs:
   # Image scanning job to detect vulnerabilities in the built Docker image
   image-scanning:
     needs: build-image
+    permissions:
+      security-events: write
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     steps:
@@ -202,7 +229,7 @@ jobs:
 
   # Publish job to push the Docker image to a registry
   publish:
-    needs: [build-image, image-scanning, secret-scanning, sca, sast]
+    needs: [build-image, image-scanning, secret-scanning, sca, sast, iac]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     steps:
@@ -223,7 +250,31 @@ jobs:
       # Pushing the Docker image to GitHub Container Registry
       run: crane push image.tar ${{ env.IMAGE_TAG }}
 
+  sbom:
+    runs-on: ubuntu-latest # Specify the runner
+    needs: [build-image]
+    container:
+      image: alpine:3.19.1@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b
+    steps:
+    - name: Install curl
+      run: apk add --update curl
+    - name: Install Syft
+      run: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+    - name: Download artifact from previous build
+      uses: actions/download-artifact@v4
+      with:
+        name: image.tar # Make sure this matches the artifact name from 'oci-build'
+    - name: Generate SBOM with Syft
+      run: syft ./image.tar -o cyclonedx-json=sbom.json
+    - name: Upload SBOM as an artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom
+        path: sbom.json
+
   sign-image:
+    permissions:
+      packages: write
     runs-on: ubuntu-latest
     needs: publish
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
@@ -260,3 +311,42 @@ jobs:
       env:
         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
       run: cosign sign --yes --key cosign.key "$(cat image-tag.txt)@${{ env.IMAGE_DIGEST }}"
+
+  sign-sbom:
+    runs-on: ubuntu-latest # Specify the runner
+    needs: publish
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    container:
+      image: alpine:3.19.1@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b
+    steps:
+    - name: Install curl and Cosign
+      run: |
+        apk add curl
+        apk add --update cosign
+    - name: Download digest
+      uses: actions/download-artifact@v4
+      with:
+        name: digest
+        path: .
+    - name: Download image tag
+      uses: actions/download-artifact@v4
+      with:
+        name: image-tag
+        path: .
+    - name: Download sbom tag
+      uses: actions/download-artifact@v4
+      with:
+        name: sbom
+        path: .
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2.1.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Write signing key to disk (only needed for `cosign sign --key`)
+      run: echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
+    - name: Sign SBOM
+      run: cosign attest --predicate ./sbom.json --key cosign.key "$(cat image-tag.txt)@$(cat digest.txt)"
+      env:
+        COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
