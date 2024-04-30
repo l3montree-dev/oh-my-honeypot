@@ -349,4 +349,4 @@ jobs:
     - name: Sign SBOM
       run: cosign attest --predicate ./sbom.json --key cosign.key "$(cat image-tag.txt)@$(cat digest.txt)"
       env:
-        COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+        COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
