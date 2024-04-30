@@ -3,6 +3,7 @@ package store
 import (
 	"bufio"
 	"encoding/json"
+	"log/slog"
 	"os"
 )
 
@@ -44,7 +45,9 @@ func NewFileDecorator[T any](file *os.File, serializer Serializer[T], store Stor
 			panic(err)
 		}
 
-		middleware.store.Store(msg)
+		if err := middleware.store.Store(msg); err != nil {
+			slog.Warn("could not store into file", "err", err)
+		}
 	}
 
 	return &middleware

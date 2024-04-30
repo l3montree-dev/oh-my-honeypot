@@ -28,7 +28,7 @@ func (w *socketioTransport) Listen() chan<- set.Token {
 		return nil
 	})
 
-	go server.Serve()
+	go server.Serve() // nolint
 
 	server.BroadcastToRoom("", "bcast", "attack")
 	http.Handle("/socket.io/", server)

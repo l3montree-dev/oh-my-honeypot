@@ -43,7 +43,7 @@ func (h *httpTransport) Listen() chan<- set.Token {
 	listener := make(chan set.Token)
 	go func() {
 		for msg := range listener {
-			h.store.Store(msg)
+			h.store.Store(msg) // nolint
 		}
 	}()
 
@@ -59,13 +59,13 @@ func (h *httpTransport) Listen() chan<- set.Token {
 				return
 			}
 			w.WriteHeader(200)
-			w.Write(arr)
+			w.Write(arr) // nolint
 			return
 		}
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}))
 
-	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux)
+	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux) // nolint
 	slog.Info("HTTP transport listening", "port", h.port)
 
 	return listener

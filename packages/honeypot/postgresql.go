@@ -68,12 +68,12 @@ func (p *postgresHoneypot) Start() error {
 						}
 						// n has to be greater than 0 since we are in the loop
 						if isSSLRequest(msg) {
-							conn.Write([]byte("N"))
+							conn.Write([]byte("N")) // nolint
 							conn.Close()
 							return
 						} else if isLoginMessage(msg) {
 							username = searchUsername(msg)
-							conn.Write(pwAuthResponse())
+							conn.Write(pwAuthResponse()) // nolint
 							loginReceived = true
 							continue
 						} else if isPasswordMessage(msg) && !passwordReceived {
@@ -93,7 +93,7 @@ func (p *postgresHoneypot) Start() error {
 									},
 								},
 							}
-							conn.Write(authErrorResponse())
+							conn.Write(authErrorResponse()) // nolint
 						}
 					}
 				}(conn)

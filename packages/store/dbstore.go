@@ -60,7 +60,9 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 						if payloadSize < int(maxSize) {
 							attackID := input.JTI
 							payload := httpEvent["body"].(string)
-							savePayload(attackID, payload)
+							if err := savePayload(attackID, payload); err != nil {
+								slog.Warn("could not save payload", "err", err)
+							}
 						} else {
 							slog.Info("Payload size is greater than 100MB")
 						}
