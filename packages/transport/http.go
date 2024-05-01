@@ -79,10 +79,23 @@ func NewHTTP(config HTTPConfig) Transport {
 }
 
 func getPort(input set.Token) int {
-	if portEvent, ok := input.Events[honeypot.PortEventID]; ok {
-		return portEvent["port"].(int)
-	} else if loginEvent, ok := input.Events[honeypot.LoginEventID]; ok {
-		return loginEvent["port"].(int)
+	var portEvent map[string]interface{}
+
+	if ev, ok := input.Events[honeypot.PortEventID]; ok {
+		portEvent = ev
+	} else if ev, ok := input.Events[honeypot.LoginEventID]; ok {
+		portEvent = ev
+	} else if ev, ok := input.Events[honeypot.LoginEventID]; ok {
+		portEvent = ev
 	}
-	return input.Events[honeypot.LoginEventID]["port"].(int)
+
+	// the port is either float64 or int
+	// so we need to cast it to int
+	switch portEvent["port"].(type) {
+	case float64:
+		return int(portEvent["port"].(float64))
+	case int:
+		return portEvent["port"].(int)
+	}
+	return 0
 }
