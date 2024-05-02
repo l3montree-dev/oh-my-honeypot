@@ -3,11 +3,12 @@ services:
     image: ghcr.io/l3montree-dev/oh-my-honeypot:v1.0.1
     volumes:
     - "./events.log:/go/src/app/events.log"
+    - "./payloads:/go/src/app/payloads"
     environment:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1234
+      POSTGRES_PASSWORD:
       POSTGRES_DB: honeypot
     ports:
     - 80:80
@@ -47,7 +48,7 @@ services:
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1234
+      POSTGRES_PASSWORD:
       POSTGRES_DB: honeypot
     volumes:
     - db:/var/lib/postgresql/data
