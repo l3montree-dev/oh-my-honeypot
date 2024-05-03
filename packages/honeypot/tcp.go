@@ -76,7 +76,6 @@ func (h *tcpHoneypot) Start() error {
 						ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/tcp",
 						IAT: time.Now().Unix(),
 						JTI: uuid.New().String(),
-						TOE: time.Now().Unix(),
 						Events: map[string]map[string]interface{}{
 							PortEventID: {
 								"port": port,

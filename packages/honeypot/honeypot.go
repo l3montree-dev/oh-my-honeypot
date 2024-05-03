@@ -56,7 +56,6 @@ func DetectPortScan(tokens []set.Token) []set.Token {
 				ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot",
 				IAT: time.Now().Unix(),
 				JTI: uuid.New().String(),
-				TOE: time.Now().Unix(),
 				Events: map[string]map[string]interface{}{
 					"https://github.com/l3montree-dev/oh-my-honeypot/json-schema/port-scan": {
 						"ports": ports,

@@ -37,7 +37,6 @@ func (s *sshHoneypot) Start() error {
 				ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/ssh",
 				IAT: time.Now().Unix(),
 				JTI: uuid.New().String(),
-				TOE: time.Now().Unix(),
 				Events: map[string]map[string]interface{}{
 					LoginEventID: {
 						"username": c.User(),
@@ -91,7 +90,6 @@ func (s *sshHoneypot) handeConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 		ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/ssh",
 		IAT: time.Now().Unix(),
 		JTI: uuid.New().String(),
-		TOE: time.Now().Unix(),
 		Events: map[string]map[string]interface{}{
 			PortEventID: {
 				"port": s.GetPort(),

@@ -20,8 +20,6 @@ type Token struct {
 	JTI string `json:"jti"`
 	// Audience
 	AUD *[]string `json:"aud,omitempty"`
-	// Time of event
-	TOE int64 `json:"toe"`
 	// events - the key has to be a uri
 	Events map[string]map[string]interface{} `json:"events"`
 }
