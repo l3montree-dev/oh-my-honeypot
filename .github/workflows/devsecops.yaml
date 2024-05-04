@@ -1,7 +1,5 @@
 # DevSecOps Workflow Definition
-# This workflow is triggered on every push to the repository
 name: DevSecOps Workflow
-
 
 on:
   push:
@@ -12,11 +10,6 @@ on:
 
 permissions:
   contents: read
-
-# Environment variables used across multiple jobs
-env:
-  IMAGE_TAG: ghcr.io/${{ github.repository }}:unstable
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
   # Secret scanning job to detect secrets in codebase
@@ -30,7 +23,7 @@ jobs:
     - name: Run Gitleaks Scan
       # Running Gitleaks to scan the code for secrets
       run: |
-        docker run --rm -v $(pwd):/code -u $(id -u):$(id -g) zricethezav/gitleaks:v8.18.1 -s /code detect -f sarif -r /code/gitleaks.sarif.json
+        docker run --rm -v $(pwd):/code -u $(id -u):$(id -g) zricethezav/gitleaks:v8.18.1@sha256:6945c62ca019ead32bc337ab0c9fd055e98d82961765d38b7ccccc84dae95d0f -s /code detect -f sarif -r /code/gitleaks.sarif.json
     - name: Upload sarif file
       uses: github/codeql-action/upload-sarif@v3
       with:
@@ -62,7 +55,7 @@ jobs:
   iac:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up Python 3.8
       uses: actions/setup-python@v4
       with:
@@ -72,7 +65,6 @@ jobs:
       uses: bridgecrewio/checkov-action@master
       with:
         directory: .
-
 
   # Static Application Security Testing (SAST) to identify security vulnerabilities in source code
   sast:
@@ -96,7 +88,7 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: actions/setup-go@v4
       with:
         go-version: '1.22'
