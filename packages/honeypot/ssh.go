@@ -28,6 +28,8 @@ type SSHConfig struct {
 
 func (s *sshHoneypot) Start() error {
 	config := &ssh.ServerConfig{
+		//Vulnerable ssh version to attract attackers
+		ServerVersion: "SSH-2.0-OpenSSH_5.8p2",
 		//Define a function to run when a client attempts a password login
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			// always return an error - just log the username and password
