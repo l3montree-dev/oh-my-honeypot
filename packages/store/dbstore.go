@@ -31,8 +31,7 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 			go func() {
 				var port int
 				var attackType string
-				timestamp := int64(input.TOE)
-				timeObj := time.Unix(timestamp, 0)
+				timestamp := input.IAT
 				if portEvent, ok := input.Events[honeypot.PortEventID]; ok {
 					port = portEvent["port"].(int)
 					attackType = "Port Scanning"
@@ -42,7 +41,7 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 					username := loginEvent["username"].(string)
 					password := loginEvent["password"].(string)
 					service := loginEvent["service"].(string)
-
+					attackType = "Login Attempt"
 					defer p.loginAttemptInsert(input.JTI, service, username, password)
 				}
 				if httpEvent, ok := input.Events[honeypot.HTTPEventID]; ok {
@@ -73,7 +72,7 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent)
 				}
 				// Insert the basic information about all attacks into the database
-				p.attackInsert(input.JTI, timeObj, port, input.SUB, input.COUNTRY, attackType)
+				p.attackInsert(input.JTI, int(timestamp), port, input.SUB, input.COUNTRY, attackType)
 			}()
 		}
 	}()
@@ -81,7 +80,7 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 }
 
 // Insert the attack into the database and sanitize the input by using prepared statements
-func (p *PostgreSQL) attackInsert(attackID string, time time.Time, port int, ip string, country string, attackType string) {
+func (p *PostgreSQL) attackInsert(attackID string, time int, port int, ip string, country string, attackType string) {
 	_, err := p.DB.Exec(`
 	INSERT INTO attack_log (Attack_id, Time_Of_Event,Port_Nr,IP_Address,Country,Attack_Type)
 	VALUES ($1, $2, $3, $4,$5, $6);
@@ -140,7 +139,7 @@ func (p *PostgreSQL) Start() error {
 	_, err = p.DB.Exec(`
 	CREATE TABLE IF NOT EXISTS attack_log (
 		Attack_ID TEXT PRIMARY KEY,
-		Time_Of_Event TIMESTAMP,
+		Time_Of_Event INT,
 		Port_Nr INT,
 		IP_Address TEXT,
 		Country TEXT,
@@ -209,4 +208,45 @@ func savePayload(id string, payload string) error {
 		panic(err)
 	}
 	return nil
+}
+
+func (p *PostgreSQL) GetAttacks() []set.Token {
+	// Get all attacks from the last 24 hours
+	oneDayAgo := time.Now().Add(-24 * time.Hour).Unix()
+	query := "SELECT * FROM attack_log WHERE time_of_event > $1"
+	rows, err := p.DB.Query(query, oneDayAgo)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer rows.Close()
+
+	var tokens []set.Token
+	for rows.Next() {
+		var ip_address, country, attack_id, attack_type string
+		var time_of_event int
+		var port_nr int
+		err := rows.Scan(&attack_id, &time_of_event, &port_nr, &ip_address, &country, &attack_type)
+		if err != nil {
+			log.Panic(err)
+		}
+		token := set.Token{
+			SUB:     ip_address,
+			COUNTRY: country,
+			ISS:     "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
+			IAT:     int64(time_of_event),
+			JTI:     attack_id,
+			Events: map[string]map[string]interface{}{
+				"properties": {
+					"port": port_nr,
+				},
+			},
+		}
+		tokens = append(tokens, token)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Panic(err)
+	}
+
+	return tokens
 }

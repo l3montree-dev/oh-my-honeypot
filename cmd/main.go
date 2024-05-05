@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/dbip"
@@ -30,7 +29,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	postgresqlDB := store.PostgreSQL{
 		Host: string(os.Getenv("POSTGRES_HOST")),
 		Port: portInt,
@@ -81,42 +79,27 @@ func main() {
 		panic(err)
 	}
 
-	fifoStore := store.NewTimefifo[set.Token](time.Duration(24 * time.Hour))
-	// create a file decorator to persist the data
-	file, err := os.OpenFile("events.log", os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		panic(err)
-	}
-
-	fileStore := store.NewFileDecorator[set.Token](
-		file,
-		store.NewJSONSerializer[set.Token](),
-		fifoStore,
-	)
-
 	httpTransport := transport.NewHTTP(transport.HTTPConfig{
 		Port: 1112,
 		// initializes the http transport with the fifo store
-		Store: fileStore,
+		Getter: &postgresqlDB,
 	})
 
 	socketioTransport := transport.NewSocketIO(transport.SocketIOConfig{
 		Port: 1113,
 	})
-	httpChan := httpTransport.Listen()
+	httpTransport.Listen()
 	socketioChan := socketioTransport.Listen()
-
-	dbIp := dbip.NewIpToCountry("dbip-country.csv")
-
 	dbChan := postgresqlDB.Listen()
 
+	dbIp := dbip.NewIpToCountry("dbip-country.csv")
 	// listen for SET events
 	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), tcpHoneypot.GetSETChannel(), udpHoneypot.GetSETChannel(), httpHoneypot.GetSETChannel(), postgresHoneypot.GetSETChannel()), func(input set.Token) (set.Token, error) {
 		input.COUNTRY = dbIp.Lookup(net.ParseIP(input.SUB))
 		return input, nil
 	})
 
-	pipeline.Broadcast(setChannel, socketioChan, httpChan, dbChan)
+	pipeline.Broadcast(setChannel, socketioChan, dbChan)
 	forever := make(chan bool)
 	<-forever
 }

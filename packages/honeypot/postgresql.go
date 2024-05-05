@@ -54,10 +54,9 @@ func (p *postgresHoneypot) Start() error {
 						if n == 0 && !loginReceived {
 							p.setChan <- set.Token{
 								SUB: sub,
-								ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/tcp",
+								ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/postgres",
 								IAT: time.Now().Unix(),
 								JTI: uuid.New().String(),
-								TOE: time.Now().Unix(),
 								Events: map[string]map[string]interface{}{
 									PortEventID: {
 										"port": p.port,
@@ -83,7 +82,6 @@ func (p *postgresHoneypot) Start() error {
 								ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
 								IAT: time.Now().Unix(),
 								JTI: uuid.New().String(),
-								TOE: time.Now().Unix(),
 								Events: map[string]map[string]interface{}{
 									LoginEventID: {
 										"username": username,
