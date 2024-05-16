@@ -102,8 +102,6 @@ func (p *postgresHoneypot) Start() error {
 	return nil
 }
 
-//func (p *postgresHoneypot) handleAuth() error {
-
 func isSSLRequest(payload []byte) bool {
 	sslCode := []byte{0, 0, 0, 8, 4, 210, 22, 47}
 	return bytes.Equal(payload[:8], sslCode)
@@ -121,20 +119,19 @@ func NewPostgres(config PostgresConfig) Honeypot {
 	}
 }
 
-// searchUsername string ,which places between "user" and "database" in the payload
+// searchUsername string ,which places behind "user" in the payload
 func searchUsername(payload []byte) string {
+	//calculate the length of the username-length of payload without:68
+	//It should be divided by 2 because username is written twice in the payload
+	usernameLength := (len(payload) - 68) / 2
+
 	//search for "user" in the payload
 	userIndex := bytes.Index(payload, []byte("user"))
 	if userIndex == -1 {
 		return ""
 	}
-	//search for "database" in the payload
-	databaseIndex := bytes.Index(payload, []byte("database"))
-	if databaseIndex == -1 {
-		return ""
-	}
-	//search for the username between "user" and "database"
-	username := payload[userIndex+5 : databaseIndex-1]
+	startIndex := userIndex + 5
+	username := payload[startIndex : startIndex+usernameLength]
 	return string(username)
 }
 
