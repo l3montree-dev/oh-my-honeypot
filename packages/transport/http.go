@@ -12,6 +12,7 @@ import (
 
 type getter interface {
 	GetAttacksIn24Hours() []set.Token
+	GetAttacksIn7Days() []set.Token
 	GetStatsIP() []set.Token
 	GetStatsCountry() []set.Token
 	GetStatsPort() []set.Token
@@ -49,6 +50,7 @@ func (h *httpTransport) Listen() {
 	// create a new http server
 	mux := http.NewServeMux()
 	mux.Handle("/attacks-in-24hours", http.HandlerFunc(h.getAttacksIn24Hours))
+	mux.Handle("/attacks-in-7days", http.HandlerFunc(h.getAttacksIn7Days))
 	mux.Handle("/stats/ip", http.HandlerFunc(h.getStatsIP))
 	mux.Handle("/stats/country", http.HandlerFunc(h.getStatsCountry))
 	mux.Handle("/stats/port", http.HandlerFunc(h.getStatsPort))
@@ -111,6 +113,27 @@ func (h *httpTransport) getAttacksIn24Hours(w http.ResponseWriter, r *http.Reque
 	}
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }
+func (h *httpTransport) getAttacksIn7Days(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		msgs := h.getter.GetAttacksIn7Days()
+		arr, err := marshalMsgs(r, msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+		}
+		return
+	}
+	w.WriteHeader(http.StatusMethodNotAllowed)
+}
+
 func (h *httpTransport) getStatsCountry(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		msgs := h.getter.GetStatsCountry()

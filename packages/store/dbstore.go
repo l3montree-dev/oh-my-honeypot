@@ -251,6 +251,44 @@ func (p *PostgreSQL) GetAttacksIn24Hours() []set.Token {
 	return tokens
 }
 
+func (p *PostgreSQL) GetAttacksIn7Days() []set.Token {
+	rows, err := p.DB.Query(`
+		SELECT TO_CHAR(TO_TIMESTAMP(time_of_event), 'DD/MM') AS attack_date,
+		COUNT(*) AS num_attacks
+		FROM attack_log
+		WHERE TO_TIMESTAMP(time_of_event) >= CURRENT_DATE - INTERVAL '7 days'
+		GROUP BY TO_CHAR(TO_TIMESTAMP(time_of_event), 'DD/MM')
+		ORDER BY attack_date;
+		`)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer rows.Close()
+	var tokens []set.Token
+	for rows.Next() {
+		var attack_date string
+		var num_attacks int
+		err := rows.Scan(&attack_date, &num_attacks)
+		if err != nil {
+			log.Panic(err)
+		}
+		token := set.Token{
+			ISS: "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
+			Events: map[string]map[string]interface{}{
+				"properties": {
+					"date":  attack_date,
+					"count": num_attacks,
+				},
+			},
+		}
+		tokens = append(tokens, token)
+	}
+	if err := rows.Err(); err != nil {
+		log.Panic(err)
+	}
+	return tokens
+}
+
 func (p *PostgreSQL) GetStatsIP() []set.Token {
 	rows, err := p.DB.Query(`
 		SELECT attack_log.ip_address, attack_log.country, COUNT(attack_log.ip_address) AS count
