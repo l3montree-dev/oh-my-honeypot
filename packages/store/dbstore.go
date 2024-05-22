@@ -23,6 +23,8 @@ type PostgreSQL struct {
 	DB       *sql.DB
 }
 
+var attackCounter []set.Token
+
 func (p *PostgreSQL) Listen() chan<- set.Token {
 	// listen to all tokens passed into the channel
 	res := make(chan set.Token)
@@ -213,7 +215,7 @@ func savePayload(id string, payload string) error {
 func (p *PostgreSQL) GetAttacksIn24Hours() []set.Token {
 	// Get all attacks from the last 24 hours
 	oneDayAgo := time.Now().Add(-24 * time.Hour).Unix()
-	query := "SELECT * FROM attack_log WHERE time_of_event > $1"
+	query := `SELECT * FROM attack_log WHERE time_of_event > $1;`
 	rows, err := p.DB.Query(query, oneDayAgo)
 	if err != nil {
 		log.Panic(err)
@@ -513,4 +515,26 @@ func (p *PostgreSQL) GetStatsURL() []set.Token {
 		log.Panic(err)
 	}
 	return tokens
+}
+
+func (p *PostgreSQL) GetRealTime() []set.Token {
+
+	count := len(p.GetAttacksIn24Hours())
+
+	attackCounter = append(attackCounter, set.Token{
+		IAT: time.Now().Unix(),
+		ISS: "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
+		Events: map[string]map[string]interface{}{
+			"properties": {
+				"count": count,
+			},
+		},
+	})
+
+	cutoff := time.Now().Add(-24 * time.Hour).Unix()
+	for len(attackCounter) > 0 && attackCounter[0].IAT < cutoff {
+		attackCounter = attackCounter[1:]
+	}
+
+	return attackCounter
 }

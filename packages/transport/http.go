@@ -19,6 +19,7 @@ type getter interface {
 	GetStatsUsername() []set.Token
 	GetStatsPassword() []set.Token
 	GetStatsURL() []set.Token
+	GetRealTime() []set.Token
 }
 
 type HTTPConfig struct {
@@ -57,6 +58,7 @@ func (h *httpTransport) Listen() {
 	mux.Handle("/stats/username", http.HandlerFunc(h.getStatsUsername))
 	mux.Handle("/stats/password", http.HandlerFunc(h.getstatsPassword))
 	mux.Handle("/stats/url", http.HandlerFunc(h.getStatsURL))
+	mux.Handle("/stats/realtime", http.HandlerFunc(h.getRealTime))
 
 	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux) // nolint
 	slog.Info("HTTP transport listening", "port", h.port)
@@ -105,10 +107,8 @@ func (h *httpTransport) getAttacksIn24Hours(w http.ResponseWriter, r *http.Reque
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.WriteHeader(http.StatusOK)
-		_, err = w.Write(arr) // Check the error return value of w.Write
-		if err != nil {
-			// Handle the error appropriately
-		}
+		_, _ = w.Write(arr) // Check the error return value of w.Write
+
 		return
 	}
 	w.WriteHeader(http.StatusMethodNotAllowed)
@@ -125,10 +125,8 @@ func (h *httpTransport) getAttacksIn7Days(w http.ResponseWriter, r *http.Request
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.WriteHeader(http.StatusOK)
-		_, err = w.Write(arr) // Check the error return value of w.Write
-		if err != nil {
-			// Handle the error appropriately
-		}
+		_, _ = w.Write(arr) // Check the error return value of w.Write
+
 		return
 	}
 	w.WriteHeader(http.StatusMethodNotAllowed)
@@ -166,10 +164,8 @@ func (h *httpTransport) getStatsIP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.WriteHeader(http.StatusOK)
-		_, err = w.Write(arr) // Check the error return value of w.Write
-		if err != nil {
-			// Handle the error appropriately
-		}
+		_, _ = w.Write(arr) // Check the error return value of w.Write
+
 		return
 	}
 	w.WriteHeader(http.StatusMethodNotAllowed)
@@ -206,10 +202,8 @@ func (h *httpTransport) getStatsUsername(w http.ResponseWriter, r *http.Request)
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.WriteHeader(http.StatusOK)
-		_, err = w.Write(arr) // Check the error return value of w.Write
-		if err != nil {
-			// Handle the error appropriately
-		}
+		_, _ = w.Write(arr) // Check the error return value of w.Write
+
 		return
 	}
 	w.WriteHeader(http.StatusMethodNotAllowed)
@@ -226,10 +220,8 @@ func (h *httpTransport) getstatsPassword(w http.ResponseWriter, r *http.Request)
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.WriteHeader(http.StatusOK)
-		_, err = w.Write(arr) // Check the error return value of w.Write
-		if err != nil {
-			// Handle the error appropriately
-		}
+		_, _ = w.Write(arr) // Check the error return value of w.Write
+
 		return
 	}
 	w.WriteHeader(http.StatusMethodNotAllowed)
@@ -246,10 +238,26 @@ func (h *httpTransport) getStatsURL(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.WriteHeader(http.StatusOK)
-		_, err = w.Write(arr) // Check the error return value of w.Write
+		_, _ = w.Write(arr) // Check the error return value of w.Write
+
+		return
+	}
+	w.WriteHeader(http.StatusMethodNotAllowed)
+}
+func (h *httpTransport) getRealTime(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		msgs := h.getter.GetRealTime()
+		arr, err := marshalMsgs(r, msgs)
 		if err != nil {
-			// Handle the error appropriately
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(arr) // Check the error return value of w.Write
+
 		return
 	}
 	w.WriteHeader(http.StatusMethodNotAllowed)
