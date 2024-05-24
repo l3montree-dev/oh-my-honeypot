@@ -237,19 +237,29 @@ func (p *PostgreSQL) GetAttacksIn24Hours() []set.Token {
 			ISS:     "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
 			IAT:     int64(time_of_event),
 			JTI:     attack_id,
-			Events: map[string]map[string]interface{}{
-				"properties": {
-					"port":        port_nr,
-					"attack_type": attack_type,
-				},
-			},
+			Events:  make(map[string]map[string]interface{}),
 		}
-		tokens = append(tokens, token)
-	}
-	if err := rows.Err(); err != nil {
-		log.Panic(err)
-	}
+		if attack_type == "Login Attempt" {
+			token.Events[honeypot.LoginEventID] = map[string]interface{}{
+				"port": port_nr,
+			}
+		} else if attack_type == "HTTP Request" {
+			token.Events[honeypot.HTTPEventID] = map[string]interface{}{
+				"port": port_nr,
+			}
+		} else if attack_type == "Port Scanning" {
+			token.Events[honeypot.PortEventID] = map[string]interface{}{
+				"port": port_nr,
+			}
+		}
 
+		tokens = append(tokens, token)
+
+		if err := rows.Err(); err != nil {
+			log.Panic(err)
+		}
+
+	}
 	return tokens
 }
 
