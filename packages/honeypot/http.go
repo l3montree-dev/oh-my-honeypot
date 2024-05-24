@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
+	"github.com/spf13/viper"
 )
 
 type httpHoneypot struct {
@@ -51,9 +52,19 @@ func (h *httpHoneypot) Start() error {
 				},
 			},
 		}
+		vi := viper.New()
+		vi.AddConfigPath(".")
+		vi.SetConfigFile("vuln-config.yaml")
+		err := vi.ReadInConfig()
+		if err != nil {
+			fmt.Println("Error on Reading Viper Config")
+			panic(err)
+		}
 		// Set the headers to make the honeypot look like an vulnerable server
-		w.Header().Set("Server", "Apache/2.2.3 (Ubuntu)")
-		w.Header().Set("X-Powered-By", "PHP/4.1.0")
+		//iterate over the headers and set them
+		for key, value := range vi.GetStringMap("http.headers") {
+			w.Header().Set(key, value.(string))
+		}
 		fmt.Fprint(w, "Hello")
 
 	})
