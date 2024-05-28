@@ -14,13 +14,15 @@ import (
 
 type getter interface {
 	GetAttacksIn24Hours() []set.Token
-	GetAttacksIn7Days() []set.Token
 	GetStatsIP() []set.Token
 	GetStatsCountry() []set.Token
 	GetStatsPort() []set.Token
 	GetStatsUsername() []set.Token
 	GetStatsPassword() []set.Token
 	GetStatsURL() []set.Token
+	GetCountIn24Hours() []set.Token
+	GetCountIn7Days() []set.Token
+	GetCountIn6Months() []set.Token
 }
 
 type HTTPConfig struct {
@@ -43,7 +45,6 @@ func NewHTTP(config HTTPConfig) *httpTransport {
 		RealtimeChan: config.RealtimeChan,
 		sockets:      make(map[string]chan set.Token),
 	}
-
 	go func() {
 		for msg := range httpTransport.RealtimeChan {
 			for _, ch := range httpTransport.sockets {
@@ -69,159 +70,36 @@ func marshalMsgs(r *http.Request, msgs []set.Token) ([]byte, error) {
 	return arr, nil
 }
 
-func (h *httpTransport) Listen() {
-	// create a new http server
-	mux := http.NewServeMux()
-	mux.Handle("GET /realtime", h.HandleSSE())
-	mux.Handle("GET /attacks-in-24hours", http.HandlerFunc(h.getAttacksIn24Hours))
-	mux.Handle("GET /attacks-in-7days", http.HandlerFunc(h.getAttacksIn7Days))
-	mux.Handle("GET /stats/country", http.HandlerFunc(h.getStatsCountry))
-	mux.Handle("GET /stats/ip", http.HandlerFunc(h.getStatsIP))
-	mux.Handle("GET /stats/port", http.HandlerFunc(h.getStatsPort))
-	mux.Handle("GET /stats/username", http.HandlerFunc(h.getStatsUsername))
-	mux.Handle("GET /stats/password", http.HandlerFunc(h.getstatsPassword))
-	mux.Handle("GET /stats/url", http.HandlerFunc(h.getStatsURL))
-
-	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux) // nolint
-	slog.Info("HTTP transport listening", "port", h.port)
-}
+// Set default HTTP headers
 func setDefaultHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 }
 
-// GET funtions of API Endpoint
-func (h *httpTransport) getAttacksIn24Hours(w http.ResponseWriter, r *http.Request) {
-	msgs := h.getter.GetAttacksIn24Hours()
-	arr, err := marshalMsgs(r, msgs)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	setDefaultHeaders(w)
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(arr) // Check the error return value of w.Write
-	if err != nil {
-		// Handle the error appropriately
-		return
-	}
+func (h *httpTransport) Listen() {
+	// create a new http server
+	mux := http.NewServeMux()
+	mux.Handle("GET /realtime", h.handleSSE())
+	mux.Handle("GET /attacks-in-24hours", h.handleAttacksIn24Hours())
+	mux.Handle("GET /stats/count-in-24hours", h.handleCountIn24Hours())
+	mux.Handle("GET /stats/count-in-7days", h.handleCountIn7Days())
+	mux.Handle("GET /stats/count-in-6months", h.handleCountIn6Monts())
+	mux.Handle("GET /stats/country", h.handleStatsCountry())
+	mux.Handle("GET /stats/ip", h.handleStatsIP())
+	mux.Handle("GET /stats/port", h.handleStatsPort())
+	mux.Handle("GET /stats/username", h.handleStatsUsername())
+	mux.Handle("GET /stats/password", h.handleStatsPassword())
+	mux.Handle("GET /stats/url", h.handleStatsURL())
+
+	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux) // nolint
+	slog.Info("HTTP transport listening", "port", h.port)
 }
 
-func (h *httpTransport) getAttacksIn7Days(w http.ResponseWriter, r *http.Request) {
-	msgs := h.getter.GetAttacksIn7Days()
-	arr, err := marshalMsgs(r, msgs)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	setDefaultHeaders(w)
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(arr) // Check the error return value of w.Write
-	if err != nil {
-		// Handle the error appropriately
-		return
-	}
-}
-
-func (h *httpTransport) getStatsCountry(w http.ResponseWriter, r *http.Request) {
-	msgs := h.getter.GetStatsCountry()
-	arr, err := marshalMsgs(r, msgs)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	setDefaultHeaders(w)
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(arr) // Check the error return value of w.Write
-	if err != nil {
-		// Handle the error appropriately
-		return
-	}
-}
-
-func (h *httpTransport) getStatsIP(w http.ResponseWriter, r *http.Request) {
-	msgs := h.getter.GetStatsIP()
-	arr, err := marshalMsgs(r, msgs)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	setDefaultHeaders(w)
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(arr) // Check the error return value of w.Write
-	if err != nil {
-		// Handle the error appropriately
-		return
-	}
-}
-
-func (h *httpTransport) getStatsPort(w http.ResponseWriter, r *http.Request) {
-	msgs := h.getter.GetStatsPort()
-	arr, err := marshalMsgs(r, msgs)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	setDefaultHeaders(w)
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(arr) // Check the error return value of w.Write
-	if err != nil {
-		// Handle the error appropriately
-		return
-	}
-}
-
-func (h *httpTransport) getStatsUsername(w http.ResponseWriter, r *http.Request) {
-	msgs := h.getter.GetStatsUsername()
-	arr, err := marshalMsgs(r, msgs)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	setDefaultHeaders(w)
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(arr) // Check the error return value of w.Write
-	if err != nil {
-		// Handle the error appropriately
-		return
-	}
-
-}
-
-func (h *httpTransport) getstatsPassword(w http.ResponseWriter, r *http.Request) {
-	msgs := h.getter.GetStatsPassword()
-	arr, err := marshalMsgs(r, msgs)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	setDefaultHeaders(w)
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(arr) // Check the error return value of w.Write
-	if err != nil {
-		// Handle the error appropriately
-		return
-	}
-}
-func (h *httpTransport) getStatsURL(w http.ResponseWriter, r *http.Request) {
-	msgs := h.getter.GetStatsURL()
-	arr, err := marshalMsgs(r, msgs)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	setDefaultHeaders(w)
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(arr) // Check the error return value of w.Write
-	if err != nil {
-		// Handle the error appropriately
-		return
-	}
-}
-
-func (h *httpTransport) HandleSSE() http.HandlerFunc {
+// HandleSSE handles the server-sent events for real time attack data
+func (h *httpTransport) handleSSE() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		//set headers for server-sent events
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
@@ -233,7 +111,6 @@ func (h *httpTransport) HandleSSE() http.HandlerFunc {
 			http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
 			return
 		}
-
 		ch := make(chan set.Token)
 		randomString := uuid.New().String()
 		h.sockets[randomString] = ch
@@ -242,23 +119,209 @@ func (h *httpTransport) HandleSSE() http.HandlerFunc {
 			slog.Info("Closing connection", "connectionId", randomString)
 			delete(h.sockets, randomString)
 		}()
-
 		for {
 			message, ok := <-ch
 			if !ok {
 				log.Printf("Channel closed")
 				return
 			}
-
 			arr, _ := json.Marshal(message)
-
 			_, err := w.Write([]byte("data: " + string(arr) + "\n\n"))
 			if err != nil {
 				log.Printf("Error writing to response: %v", err)
 				return
 			}
-
 			flusher.Flush()
+		}
+	}
+}
+
+// handleAttacksIn24Hours handles the request for attacks in the last 24 hours
+func (h *httpTransport) handleAttacksIn24Hours() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		msgs := h.getter.GetAttacksIn24Hours()
+		arr, err := marshalMsgs(r, msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		setDefaultHeaders(w)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+			return
+		}
+	}
+}
+
+// handleCountIn24Hours handles the request for number of attacks per hour for last 24hours
+func (h *httpTransport) handleCountIn24Hours() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		msgs := h.getter.GetCountIn24Hours()
+		arr, err := marshalMsgs(r, msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		setDefaultHeaders(w)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+			return
+		}
+	}
+}
+
+// handleCountIn7Days handles the request for number of attacks per day for last 7 days
+func (h *httpTransport) handleCountIn7Days() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		msgs := h.getter.GetCountIn7Days()
+		arr, err := marshalMsgs(r, msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		setDefaultHeaders(w)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+			return
+		}
+	}
+}
+
+// handleCountIn6Monts handles the request for number of attacks per month for last 6 months
+func (h *httpTransport) handleCountIn6Monts() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		msgs := h.getter.GetCountIn6Months()
+		arr, err := marshalMsgs(r, msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		setDefaultHeaders(w)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+			return
+		}
+	}
+}
+
+// handleStatsCountry handles the request for number of attacks per country
+func (h *httpTransport) handleStatsCountry() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		msgs := h.getter.GetStatsCountry()
+		arr, err := marshalMsgs(r, msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		setDefaultHeaders(w)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+			return
+		}
+	}
+}
+
+// handleStatsIP handles the request for number of attacks per IP
+func (h *httpTransport) handleStatsIP() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		msgs := h.getter.GetStatsIP()
+		arr, err := marshalMsgs(r, msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		setDefaultHeaders(w)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+			return
+		}
+	}
+}
+
+// handleStatsUsername handles the request for number of attacks per username
+func (h *httpTransport) handleStatsUsername() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		msgs := h.getter.GetStatsUsername()
+		arr, err := marshalMsgs(r, msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		setDefaultHeaders(w)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+			return
+		}
+	}
+}
+
+// handleStatsPassword handles the request for number of attacks per password
+func (h *httpTransport) handleStatsPassword() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		msgs := h.getter.GetStatsPassword()
+		arr, err := marshalMsgs(r, msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		setDefaultHeaders(w)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+			return
+		}
+	}
+}
+
+// handleStatsPort handles the request for number of attacks per port
+func (h *httpTransport) handleStatsPort() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		msgs := h.getter.GetStatsPort()
+		arr, err := marshalMsgs(r, msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		setDefaultHeaders(w)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+			return
+		}
+	}
+}
+
+// handleStatsURL handles the request for number of attacks per URL
+func (h *httpTransport) handleStatsURL() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		msgs := h.getter.GetStatsURL()
+		arr, err := marshalMsgs(r, msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		setDefaultHeaders(w)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+			return
 		}
 	}
 }
