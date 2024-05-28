@@ -20,11 +20,13 @@ import (
 
 type sshHoneypot struct {
 	port int
+	vuln *viper.Viper
 	// setChan is the channel the honeypot is posting SET events to.
 	setChan chan set.Token
 }
 type SSHConfig struct {
 	Port int
+	Vuln *viper.Viper
 }
 
 func (s *sshHoneypot) Start() error {
@@ -51,17 +53,9 @@ func (s *sshHoneypot) Start() error {
 			return nil, fmt.Errorf("password rejected for %q", c.User())
 		},
 	}
-	vi := viper.New()
-	vi.AddConfigPath(".")
-	vi.SetConfigFile("vuln-config.yaml")
 
-	err := vi.ReadInConfig()
-	if err != nil {
-		fmt.Println("Error on Reading Viper Config")
-		panic(err)
-	}
 	//Vulnerable ssh version to attract attackers
-	config.ServerVersion = vi.GetString("ssh.ServerVersion")
+	config.ServerVersion = s.vuln.GetString("ssh.ServerVersion")
 
 	privateBytes := encodePrivateKeyToPEM(generatePrivateKey())
 	private, err := ssh.ParsePrivateKey(privateBytes)
@@ -150,6 +144,7 @@ func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 func NewSSH(config SSHConfig) Honeypot {
 	return &sshHoneypot{
 		port:    config.Port,
+		vuln:    config.Vuln,
 		setChan: make(chan set.Token),
 	}
 }
