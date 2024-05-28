@@ -17,14 +17,12 @@ import (
 
 type httpHoneypot struct {
 	port int
-	vuln *viper.Viper
 	// setChan is the channel the honeypot is posting SET events to.
 	setChan chan set.Token
 }
 
 type HTTPConfig struct {
 	Port int
-	Vuln *viper.Viper
 }
 
 func (h *httpHoneypot) Start() error {
@@ -57,7 +55,7 @@ func (h *httpHoneypot) Start() error {
 
 		// Set the headers to make the honeypot look like an vulnerable server
 		//iterate over the headers and set them
-		for key, value := range h.vuln.GetStringMap("http.headers") {
+		for key, value := range viper.GetStringMap("http.headers") {
 			w.Header().Set(key, value.(string))
 		}
 		fmt.Fprint(w, "Hello")
@@ -95,6 +93,5 @@ func NewHTTP(config HTTPConfig) Honeypot {
 	return &httpHoneypot{
 		port:    config.Port,
 		setChan: make(chan set.Token),
-		vuln:    config.Vuln,
 	}
 }

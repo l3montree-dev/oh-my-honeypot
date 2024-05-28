@@ -21,10 +21,10 @@ import (
 func main() {
 	InitLogger()
 	// Initialize viper
-	vi := viper.New()
-	vi.AddConfigPath(".")
-	vi.SetConfigFile("vuln-config.yaml")
-	err := vi.ReadInConfig()
+	viper.New()
+	viper.AddConfigPath(".")
+	viper.SetConfigFile("vuln-config.yaml")
+	err := viper.ReadInConfig()
 	if err != nil {
 		fmt.Println("Error on Reading Viper Config")
 		panic(err)
@@ -55,7 +55,6 @@ func main() {
 
 	httpHoneypot := honeypot.NewHTTP(honeypot.HTTPConfig{
 		Port: 80,
-		Vuln: vi,
 	})
 	err = httpHoneypot.Start()
 	if err != nil {
@@ -72,7 +71,6 @@ func main() {
 
 	sshHoneypot := honeypot.NewSSH(honeypot.SSHConfig{
 		Port: 22,
-		Vuln: vi,
 	})
 	err = sshHoneypot.Start()
 	if err != nil {
