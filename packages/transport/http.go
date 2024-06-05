@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/l3montree-dev/oh-my-honeypot/packages/honeypot"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 )
 
@@ -316,24 +315,4 @@ func (h *httpTransport) handleHealth() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}
-}
-
-func getPorts(input types.Set) int {
-	var portEvent map[string]interface{}
-	if ev, ok := input.Events[honeypot.PortEventID]; ok {
-		portEvent = ev
-	} else if ev, ok := input.Events[honeypot.LoginEventID]; ok {
-		portEvent = ev
-	} else if ev, ok := input.Events[honeypot.LoginEventID]; ok {
-		portEvent = ev
-	}
-	// the port is either float64 or int
-	// so we need to cast it to int
-	switch portEvent["port"].(type) {
-	case float64:
-		return int(portEvent["port"].(float64))
-	case int:
-		return portEvent["port"].(int)
-	}
-	return 0
 }
