@@ -247,20 +247,21 @@ func (p *PostgreSQL) GetAttacksIn24Hours() []types.Set {
 
 	var tokens []types.Set
 	for rows.Next() {
-		var ip_address, country, attack_id, attack_type string
+		var ip_address, country, attack_id, attack_type, honeypot_id string
 		var time_of_event int
 		var port_nr int
-		err := rows.Scan(&attack_id, &time_of_event, &port_nr, &ip_address, &country, &attack_type)
+		err := rows.Scan(&attack_id, &time_of_event, &port_nr, &ip_address, &country, &attack_type, &honeypot_id)
 		if err != nil {
 			slog.Error("Error scanning the database", "err", err)
 		}
 		token := types.Set{
-			SUB:     ip_address,
-			COUNTRY: country,
-			ISS:     "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
-			IAT:     int64(time_of_event),
-			JTI:     attack_id,
-			Events:  make(map[string]map[string]interface{}),
+			SUB:      ip_address,
+			COUNTRY:  country,
+			ISS:      "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
+			HONEYPOT: honeypot_id,
+			IAT:      int64(time_of_event),
+			JTI:      attack_id,
+			Events:   make(map[string]map[string]interface{}),
 		}
 		if attack_type == "Login Attempt" {
 			token.Events[honeypot.LoginEventID] = map[string]interface{}{
@@ -331,7 +332,7 @@ func (p *PostgreSQL) GetCountIn24Hours() []types.CountIn24HoursStats {
 			slog.Error("Error scanning the database", "err", err)
 		}
 		res := types.CountIn24HoursStats{
-			Hour:  string(hour),
+			Hour:  hour,
 			Count: count,
 		}
 		tokens = append(tokens, res)
