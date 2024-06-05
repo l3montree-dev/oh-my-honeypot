@@ -93,14 +93,11 @@ func main() {
 	httpTransport := transport.NewHTTP(transport.HTTPConfig{
 		Port: 1112,
 		// initializes the http transport with the fifo store
-		Getter: &postgresqlDB,
+		Getter:       &postgresqlDB,
+		RealtimeChan: make(chan set.Token),
 	})
 
-	socketioTransport := transport.NewSocketIO(transport.SocketIOConfig{
-		Port: 1113,
-	})
 	httpTransport.Listen()
-	socketioChan := socketioTransport.Listen()
 	dbChan := postgresqlDB.Listen()
 
 	dbIp := dbip.NewIpToCountry("dbip-country.csv")
@@ -110,7 +107,7 @@ func main() {
 		return input, nil
 	})
 
-	pipeline.Broadcast(setChannel, socketioChan, dbChan)
+	pipeline.Broadcast(setChannel, httpTransport.RealtimeChan, dbChan)
 	forever := make(chan bool)
 	<-forever
 }
