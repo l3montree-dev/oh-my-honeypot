@@ -90,7 +90,7 @@ func (h *httpTransport) Listen() {
 	mux.Handle("GET /stats/port", h.handleStatsPort())
 	mux.Handle("GET /stats/username", h.handleStatsUsername())
 	mux.Handle("GET /stats/password", h.handleStatsPassword())
-	mux.Handle("GET /stats/url", h.handleStatsURL())
+	mux.Handle("GET /stats/path", h.handleStatsURL())
 
 	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux) // nolint
 	slog.Info("HTTP transport listening", "port", h.port)
