@@ -53,12 +53,17 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 					useragent := httpEvent["user-agent"].([]string)
 					//store the payload if the method is POST, PUT or PATCH
 					if method == "POST" || method == "PUT" || method == "PATCH" {
+						payload := httpEvent["body"].(string)
+						if httpEvent["attack-type"] == "Spam" {
+							name := httpEvent["name"].(string)
+							email := httpEvent["e-mail"].(string)
+							defer p.spamInsert(input.JTI, name, email)
+						}
 						payloadSize := httpEvent["bodysize"].(int)
 						maxSize := int64(100 * 1024 * 1024)
 						//store the payload if it is less than 100MB
 						if payloadSize < int(maxSize) {
 							attackID := input.JTI
-							payload := httpEvent["body"].(string)
 							if err := savePayload(attackID, payload); err != nil {
 								slog.Warn("could not save payload", "err", err)
 							}
@@ -67,7 +72,8 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 						}
 						//store the content type and payload size
 						contentType := httpEvent["content-type"].(string)
-						defer p.bodyInsert(input.JTI, method, contentType, strconv.Itoa(payloadSize)+" bytes")
+						defer p.bodyInsert(input.JTI, contentType, strconv.Itoa(payloadSize)+" bytes")
+
 					}
 					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent)
 				}
@@ -110,11 +116,22 @@ func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acc
 	}
 }
 
-func (p *PostgreSQL) bodyInsert(attackID string, method string, contentType string, payloadSize string) {
+func (p *PostgreSQL) bodyInsert(attackID string, contentType string, payloadSize string) {
 	_, err := p.DB.Exec(`
-	INSERT INTO http_body (Attack_ID,method,content_type,payload_size)
-	VALUES ($1,$2,$3,$4)
-	`, attackID, method, contentType, payloadSize)
+	INSERT INTO http_body (Attack_ID,content_type,payload_size)
+	VALUES ($1,$2,$3)
+	`, attackID, contentType, payloadSize)
+	if err != nil {
+		//Err
+		log.Println("Error inserting into the database http_body", err)
+	}
+}
+
+func (p *PostgreSQL) spamInsert(attackID string, name string, email string) {
+	_, err := p.DB.Exec(`
+	INSERT INTO http_spam (Attack_ID,name,email)
+	VALUES ($1,$2,$3)
+	`, attackID, name, email)
 	if err != nil {
 		//Err
 		log.Println("Error inserting into the database http_body", err)
@@ -175,9 +192,18 @@ func (p *PostgreSQL) Start() error {
 	_, err = p.DB.Exec(`
 	CREATE TABLE IF NOT EXISTS http_body (
 		Attack_ID TEXT PRIMARY KEY, 
-		method TEXT, 
 		content_type TEXT, 
 		payload_size TEXT, 
+		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
+	if err != nil {
+		log.Println("Error creating table http_body", err)
+	}
+	_, err = p.DB.Exec(`
+	CREATE TABLE IF NOT EXISTS http_spam (
+		Attack_ID TEXT PRIMARY KEY, 
+		name TEXT, 
+		email TEXT, 
+		message_size TEXT, 
 		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
 	if err != nil {
 		log.Println("Error creating table http_body", err)

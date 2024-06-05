@@ -2,6 +2,7 @@ package honeypot
 
 import (
 	"fmt"
+	"html"
 	"io"
 	"log/slog"
 	"net"
@@ -27,6 +28,9 @@ type HTTPConfig struct {
 
 func (h *httpHoneypot) Start() error {
 	mux := http.NewServeMux()
+	//FileServer to serve static files of hidden ontact form
+	fileServer := http.FileServer(http.Dir("./public"))
+	mux.Handle("/contact-us/", fileServer)
 	mux.HandleFunc("/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
 		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
@@ -58,9 +62,49 @@ func (h *httpHoneypot) Start() error {
 		for key, value := range viper.GetStringMap("http.headers") {
 			w.Header().Set(key, value.(string))
 		}
-		fmt.Fprint(w, "Hello")
-
+		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
 	})
+	// Handle the form submission
+	mux.HandleFunc("/contact-us/submit", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, "Error parsing form", http.StatusBadRequest)
+			return
+		}
+		useragent := split(r.UserAgent())
+		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		sub, _ := utils.NetAddrToIpStr(remoteAddr)
+		contentType := r.Header.Get("Content-Type")
+		name := r.FormValue("First Name") + " " + r.FormValue("Last Name")
+		email := r.FormValue("E-Mail")
+		body := name + "\n" + email + "\n" + r.FormValue("Message")
+		h.setChan <- set.Token{
+			SUB: sub,
+			ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
+			IAT: time.Now().Unix(),
+			JTI: uuid.New().String(),
+			Events: map[string]map[string]interface{}{
+				HTTPEventID: {
+					"port":         h.port,
+					"method":       r.Method,
+					"accept-lang":  r.Header.Get("Accept-Language"),
+					"user-agent":   useragent,
+					"content-type": contentType,
+					"body":         body,
+					"bodysize":     len(body),
+					"path":         r.URL.Path,
+					"name":         name,
+					"e-mail":       email,
+					"attack-type":  "Spam",
+				},
+			},
+		}
+	})
+	// Set the headers to make the honeypot look like an vulnerable server
 	slog.Info("HTTP Honeypot started", "port", h.port)
 	go func() {
 		for {
