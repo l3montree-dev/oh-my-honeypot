@@ -2,6 +2,7 @@ package dbip
 
 import (
 	"encoding/csv"
+	"log/slog"
 	"math/big"
 	"net"
 	"os"
@@ -60,7 +61,7 @@ func (i *IpToCountry) Lookup(ip net.IP) string {
 func readDBIPCountryFile(filename string) []IPRange {
 	csvFile, err := os.Open(filename)
 	if err != nil {
-		panic(err)
+		slog.Error("Error opening file", "error", err)
 	}
 	defer csvFile.Close()
 	result := make([]IPRange, 0)

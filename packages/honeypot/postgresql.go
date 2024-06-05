@@ -123,11 +123,6 @@ func NewPostgres(config PostgresConfig) Honeypot {
 func searchUsername(payload []byte) string {
 	//calculate the length of the username-length of payload without:68
 	//It should be divided by 2 because username is written twice in the payload
-
-	// Tuserdatabasedatabasedatabaseapplication_namepsqlclient_encodingUTF8
-	// Tuser database database database application_name psql client_encoding UTF8
-
-	// Nuser admin database admin application_name psql client_encodingUTF8
 	databaseIndex := bytes.LastIndex(payload, []byte("database"))
 
 	//search for "user" in the payload
@@ -135,11 +130,9 @@ func searchUsername(payload []byte) string {
 	if userIndex == -1 {
 		return ""
 	}
-
 	if databaseIndex < userIndex {
 		return ""
 	}
-
 	startIndex := userIndex + 5
 	username := payload[startIndex:databaseIndex]
 

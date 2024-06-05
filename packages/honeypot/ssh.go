@@ -118,7 +118,7 @@ func generatePrivateKey() *rsa.PrivateKey {
 	// generate a private key
 	private, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		panic(err)
+		slog.Error("Failed to generate private key", "err", err)
 	}
 	return private
 }

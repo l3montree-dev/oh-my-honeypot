@@ -3,7 +3,6 @@ package store
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"strconv"
@@ -92,7 +91,7 @@ func (p *PostgreSQL) attackInsert(attackID string, time int, port int, ip string
 	VALUES ($1, $2, $3, $4,$5, $6);
 	`, attackID, time, port, ip, country, attackType)
 	if err != nil {
-		log.Println("Error inserting into the database attack_log", err)
+		slog.Error("Error inserting into the database attack_log", "err", err)
 	}
 }
 
@@ -102,7 +101,7 @@ func (p *PostgreSQL) loginAttemptInsert(attackID string, service string, usernam
 	VALUES ($1, $2, $3,$4)
 	`, attackID, service, username, password)
 	if err != nil {
-		log.Println("Error inserting into the database login_attempt", err)
+		slog.Error("Error inserting into the database login_attempt", "err", err)
 	}
 }
 
@@ -112,7 +111,7 @@ func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acc
 	VALUES ($1, $2, $3, $4, $5, $6,$7)
 	`, attackID, method, path, acceptLanguage, useragent[0], useragent[1], useragent[2])
 	if err != nil {
-		log.Println("Error inserting into the database http_request", err)
+		slog.Error("Error inserting into the database http_request", "err", err)
 	}
 }
 
@@ -122,8 +121,7 @@ func (p *PostgreSQL) bodyInsert(attackID string, contentType string, payloadSize
 	VALUES ($1,$2,$3)
 	`, attackID, contentType, payloadSize)
 	if err != nil {
-		//Err
-		log.Println("Error inserting into the database http_body", err)
+		slog.Error("Error inserting into the database http_body", "err", err)
 	}
 }
 
@@ -133,8 +131,7 @@ func (p *PostgreSQL) spamInsert(attackID string, name string, email string) {
 	VALUES ($1,$2,$3)
 	`, attackID, name, email)
 	if err != nil {
-		//Err
-		log.Println("Error inserting into the database http_body", err)
+		slog.Error("Error inserting into the database http_spam", "err", err)
 	}
 }
 
@@ -146,7 +143,7 @@ func (p *PostgreSQL) Start() error {
 	// Open a connection to the PostgreSQL database
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
-		log.Println("Error while opening to the DB", err)
+		slog.Error("Error opening the database connection", "err", err)
 		return err
 	}
 	// Set the database connection in the postgreSQL struct
@@ -163,7 +160,7 @@ func (p *PostgreSQL) Start() error {
 		Attack_Type TEXT
 		);`)
 	if err != nil {
-		log.Println("Error creating table attack_log", err)
+		slog.Error("Error creating table attack_log", "err", err)
 	}
 	_, err = p.DB.Exec(`
 	CREATE TABLE IF NOT EXISTS login_attempt (
@@ -173,7 +170,7 @@ func (p *PostgreSQL) Start() error {
 		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID)
 		);`)
 	if err != nil {
-		log.Println("Error creating table login_attempt", err)
+		slog.Error("Error creating table login_attempt", "err", err)
 	}
 	_, err = p.DB.Exec(`
 	CREATE TABLE IF NOT EXISTS http_request (
@@ -187,7 +184,7 @@ func (p *PostgreSQL) Start() error {
 		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID)
 		);`)
 	if err != nil {
-		log.Println("Error creating table http_request", err)
+		slog.Error("Error creating table http_request", "err", err)
 	}
 	_, err = p.DB.Exec(`
 	CREATE TABLE IF NOT EXISTS http_body (
@@ -196,7 +193,7 @@ func (p *PostgreSQL) Start() error {
 		payload_size TEXT, 
 		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
 	if err != nil {
-		log.Println("Error creating table http_body", err)
+		slog.Error("Error creating table http_body", "err", err)
 	}
 	_, err = p.DB.Exec(`
 	CREATE TABLE IF NOT EXISTS http_spam (
@@ -206,7 +203,7 @@ func (p *PostgreSQL) Start() error {
 		message_size TEXT, 
 		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
 	if err != nil {
-		log.Println("Error creating table http_body", err)
+		slog.Error("Error creating table http_spam", "err", err)
 	}
 
 	slog.Info("PostgreSQL store started")
@@ -225,13 +222,13 @@ func (p *PostgreSQL) Close() error {
 func savePayload(id string, payload string) error {
 	file, err := os.OpenFile("payloads/"+id, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
-		panic(err)
+		slog.Error("could not open file", "err", err)
 	}
 	defer file.Close()
 
 	_, err = file.WriteString(payload)
 	if err != nil {
-		panic(err)
+		slog.Error("could not write to file", "err", err)
 	}
 	return nil
 }
@@ -243,7 +240,7 @@ func (p *PostgreSQL) GetAttacksIn24Hours() []types.Set {
 	query := `SELECT * FROM attack_log WHERE time_of_event > $1;`
 	rows, err := p.DB.Query(query, oneDayAgo)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Error querying the database", "err", err)
 	}
 	defer rows.Close()
 
@@ -254,7 +251,7 @@ func (p *PostgreSQL) GetAttacksIn24Hours() []types.Set {
 		var port_nr int
 		err := rows.Scan(&attack_id, &time_of_event, &port_nr, &ip_address, &country, &attack_type)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Error scanning the database", "err", err)
 		}
 		token := types.Set{
 			SUB:     ip_address,
@@ -281,7 +278,7 @@ func (p *PostgreSQL) GetAttacksIn24Hours() []types.Set {
 		tokens = append(tokens, token)
 
 		if err := rows.Err(); err != nil {
-			log.Panic(err)
+			slog.Error("Error scanning the database", "err", err)
 		}
 
 	}
@@ -321,7 +318,7 @@ func (p *PostgreSQL) GetCountIn24Hours() []types.CountIn24HoursStats {
 		h.hour;
 		`)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Error querying the database", "err", err)
 	}
 	defer rows.Close()
 	var tokens []types.CountIn24HoursStats
@@ -330,7 +327,7 @@ func (p *PostgreSQL) GetCountIn24Hours() []types.CountIn24HoursStats {
 		var count int
 		err := rows.Scan(&hour, &count)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Error scanning the database", "err", err)
 		}
 		res := types.CountIn24HoursStats{
 			Hour:  string(hour),
@@ -339,7 +336,7 @@ func (p *PostgreSQL) GetCountIn24Hours() []types.CountIn24HoursStats {
 		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
-		log.Panic(err)
+		slog.Error("Error scanning the database", "err", err)
 	}
 	return tokens
 }
@@ -354,7 +351,7 @@ func (p *PostgreSQL) GetCountIn7Days() []types.CountIn7DaysStats {
 		ORDER BY date;
 		`)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Error querying the database", "err", err)
 	}
 	defer rows.Close()
 	var tokens []types.CountIn7DaysStats
@@ -363,7 +360,7 @@ func (p *PostgreSQL) GetCountIn7Days() []types.CountIn7DaysStats {
 		var count int
 		err := rows.Scan(&date, &count)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Error scanning the database", "err", err)
 		}
 		res := types.CountIn7DaysStats{
 			Date:  date,
@@ -372,7 +369,7 @@ func (p *PostgreSQL) GetCountIn7Days() []types.CountIn7DaysStats {
 		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
-		log.Panic(err)
+		slog.Error("Error scanning the database", "err", err)
 	}
 	return tokens
 }
@@ -387,7 +384,7 @@ func (p *PostgreSQL) GetCountIn6Months() []types.CountIn6MonthsStats {
 		ORDER BY month;
 		`)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Error querying the database", "err", err)
 	}
 	defer rows.Close()
 	var tokens []types.CountIn6MonthsStats
@@ -396,7 +393,7 @@ func (p *PostgreSQL) GetCountIn6Months() []types.CountIn6MonthsStats {
 		var count int
 		err := rows.Scan(&month, &count)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Error scanning the database", "err", err)
 		}
 		res := types.CountIn6MonthsStats{
 			Month: month,
@@ -405,7 +402,7 @@ func (p *PostgreSQL) GetCountIn6Months() []types.CountIn6MonthsStats {
 		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
-		log.Panic(err)
+		slog.Error("Error scanning the database", "err", err)
 	}
 	return tokens
 }
@@ -419,7 +416,7 @@ func (p *PostgreSQL) GetCountryStats() []types.CountryStats {
 		DESC ;
 		`)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Error querying the database", "err", err)
 	}
 	defer rows.Close()
 	var tokens []types.CountryStats
@@ -428,7 +425,7 @@ func (p *PostgreSQL) GetCountryStats() []types.CountryStats {
 		var count int
 		err := rows.Scan(&country, &count)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Error scanning the database", "err", err)
 		}
 		res := types.CountryStats{
 			Country: country,
@@ -437,7 +434,7 @@ func (p *PostgreSQL) GetCountryStats() []types.CountryStats {
 		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
-		log.Panic(err)
+		slog.Error("Error scanning the database", "err", err)
 	}
 	return tokens
 }
@@ -451,7 +448,7 @@ func (p *PostgreSQL) GetIPStats() []types.IPStats {
 		DESC;
 		`)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Error querying the database", "err", err)
 	}
 	defer rows.Close()
 
@@ -461,7 +458,7 @@ func (p *PostgreSQL) GetIPStats() []types.IPStats {
 		var count int
 		err := rows.Scan(&ip_address, &country, &count)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Error scanning the database", "err", err)
 		}
 		res := types.IPStats{
 			IP:      ip_address,
@@ -471,7 +468,7 @@ func (p *PostgreSQL) GetIPStats() []types.IPStats {
 		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
-		log.Panic(err)
+		slog.Error("Error scanning the database", "err", err)
 	}
 	return tokens
 }
@@ -485,7 +482,7 @@ func (p *PostgreSQL) GetUsernameStats() []types.UsernameStats {
 		DESC ;
 		`)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Error querying the database", "err", err)
 	}
 	defer rows.Close()
 	var tokens []types.UsernameStats
@@ -494,7 +491,7 @@ func (p *PostgreSQL) GetUsernameStats() []types.UsernameStats {
 		var count int
 		err := rows.Scan(&username, &count)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Error scanning the database", "err", err)
 		}
 		res := types.UsernameStats{
 			Username: username,
@@ -503,7 +500,7 @@ func (p *PostgreSQL) GetUsernameStats() []types.UsernameStats {
 		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
-		log.Panic(err)
+		slog.Error("Error scanning the database", "err", err)
 	}
 	return tokens
 }
@@ -516,7 +513,7 @@ func (p *PostgreSQL) GetPasswordStats() []types.PasswordStats {
 		DESC ;
 		`)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Error querying the database", "err", err)
 	}
 	defer rows.Close()
 
@@ -526,7 +523,7 @@ func (p *PostgreSQL) GetPasswordStats() []types.PasswordStats {
 		var count int
 		err := rows.Scan(&password, &count)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Error scanning the database", "err", err)
 		}
 		res := types.PasswordStats{
 			Password: password,
@@ -535,7 +532,7 @@ func (p *PostgreSQL) GetPasswordStats() []types.PasswordStats {
 		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
-		log.Panic(err)
+		slog.Error("Error scanning the database", "err", err)
 	}
 	return tokens
 }
@@ -549,7 +546,7 @@ func (p *PostgreSQL) GetPortStats() []types.PortStats {
 		DESC ;
 		`)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Error querying the database", "err", err)
 	}
 	defer rows.Close()
 
@@ -558,7 +555,7 @@ func (p *PostgreSQL) GetPortStats() []types.PortStats {
 		var count, port_nr int
 		err := rows.Scan(&port_nr, &count)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Error scanning the database", "err", err)
 		}
 		res := types.PortStats{
 			Port:  string(port_nr),
@@ -567,7 +564,7 @@ func (p *PostgreSQL) GetPortStats() []types.PortStats {
 		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
-		log.Panic(err)
+		slog.Error("Error scanning the database", "err", err)
 	}
 	return tokens
 }
@@ -581,7 +578,7 @@ func (p *PostgreSQL) GetPathStats() []types.PathStats {
 		DESC ;
 		`)
 	if err != nil {
-		log.Panic(err)
+		slog.Error("Error querying the database", "err", err)
 	}
 	defer rows.Close()
 
@@ -591,7 +588,7 @@ func (p *PostgreSQL) GetPathStats() []types.PathStats {
 		var count int
 		err := rows.Scan(&path, &count)
 		if err != nil {
-			log.Panic(err)
+			slog.Error("Error scanning the database", "err", err)
 		}
 		res := types.PathStats{
 			Path:  path,
@@ -600,7 +597,7 @@ func (p *PostgreSQL) GetPathStats() []types.PathStats {
 		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
-		log.Panic(err)
+		slog.Error("Error scanning the database", "err", err)
 	}
 	return tokens
 }
