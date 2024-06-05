@@ -11,9 +11,10 @@ import (
 type Set struct {
 	// Subject
 	// always an ip address
-	SUB     string `json:"sub"`
-	COUNTRY string `json:"subCountry"`
-	ISS     string `json:"iss"`
+	SUB      string `json:"sub"`
+	COUNTRY  string `json:"subCountry"`
+	ISS      string `json:"iss"`
+	HONEYPOT string `json:"issHoneypot"`
 	// The time at which the event occurred.
 	IAT int64 `json:"iat"`
 	// id of the set

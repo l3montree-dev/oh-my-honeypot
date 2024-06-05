@@ -76,6 +76,7 @@ func (h *httpTransport) Listen() {
 	mux.Handle("GET /stats/username", h.handleUsernameStats())
 	mux.Handle("GET /stats/password", h.handlePasswordStats())
 	mux.Handle("GET /stats/path", h.handlePathStats())
+	mux.Handle("GET /health", h.handleHealth())
 
 	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux) // nolint
 	slog.Info("HTTP transport listening", "port", h.port)
@@ -311,7 +312,13 @@ func (h *httpTransport) handlePathStats() http.HandlerFunc {
 	}
 }
 
-func getPort(input types.Set) int {
+func (h *httpTransport) handleHealth() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func getPorts(input types.Set) int {
 	var portEvent map[string]interface{}
 	if ev, ok := input.Events[honeypot.PortEventID]; ok {
 		portEvent = ev

@@ -105,6 +105,7 @@ func main() {
 	// listen for SET events
 	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), tcpHoneypot.GetSETChannel(), udpHoneypot.GetSETChannel(), httpHoneypot.GetSETChannel(), postgresHoneypot.GetSETChannel()), func(input types.Set) (types.Set, error) {
 		input.COUNTRY = dbIp.Lookup(net.ParseIP(input.SUB))
+		input.HONEYPOT = string(os.Getenv("HONEYPOT_NAME"))
 		return input, nil
 	})
 
