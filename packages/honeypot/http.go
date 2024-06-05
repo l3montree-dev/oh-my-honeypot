@@ -3,7 +3,6 @@ package honeypot
 import (
 	"fmt"
 
-	"html"
 	"io"
 	"log/slog"
 	"net"
@@ -32,7 +31,7 @@ func (h *httpHoneypot) Start() error {
 	mux := http.NewServeMux()
 	//FileServer to serve static files of hidden ontact form
 	fileServer := http.FileServer(http.Dir("./public"))
-	mux.Handle("/contact-us/", fileServer)
+	mux.Handle("/contact-us/", http.StripPrefix("/contact-us/", fileServer))
 	mux.HandleFunc("/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
 		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
@@ -58,13 +57,12 @@ func (h *httpHoneypot) Start() error {
 				},
 			},
 		}
-
 		// Set the headers to make the honeypot look like an vulnerable server
 		//iterate over the headers and set them
 		for key, value := range viper.GetStringMap("http.headers") {
 			w.Header().Set(key, value.(string))
 		}
-		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+		fmt.Fprintf(w, "Hello")
 	})
 	// Handle the form submission
 	mux.HandleFunc("/contact-us/submit", func(w http.ResponseWriter, r *http.Request) {
