@@ -80,7 +80,7 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent)
 				}
 				// Insert the basic information about all attacks into the database
-				p.attackInsert(input.JTI, int(timestamp), port, input.SUB, input.COUNTRY, attackType)
+				p.attackInsert(input.JTI, input.HONEYPOT, int(timestamp), port, input.SUB, input.COUNTRY, attackType)
 			}()
 		}
 	}()
@@ -88,11 +88,11 @@ func (p *PostgreSQL) Listen() chan<- set.Token {
 }
 
 // Insert the attack into the database and sanitize the input by using prepared statements
-func (p *PostgreSQL) attackInsert(attackID string, time int, port int, ip string, country string, attackType string) {
+func (p *PostgreSQL) attackInsert(attackID string, honeypot_id string, time int, port int, ip string, country string, attackType string) {
 	_, err := p.DB.Exec(`
-	INSERT INTO attack_log (Attack_id, Time_Of_Event,Port_Nr,IP_Address,Country,Attack_Type)
-	VALUES ($1, $2, $3, $4,$5, $6);
-	`, attackID, time, port, ip, country, attackType)
+	INSERT INTO attack_log (Attack_id,Honeypot_id, Time_Of_Event,Port_Nr,IP_Address,Country,Attack_Type)
+	VALUES ($1, $2, $3, $4,$5, $6, $7);
+	`, attackID, honeypot_id, time, port, ip, country, attackType)
 	if err != nil {
 		log.Println("Error inserting into the database attack_log", err)
 	}
@@ -158,6 +158,7 @@ func (p *PostgreSQL) Start() error {
 	_, err = p.DB.Exec(`
 	CREATE TABLE IF NOT EXISTS attack_log (
 		Attack_ID TEXT PRIMARY KEY,
+		Honeypot_ID TEXT,
 		Time_Of_Event INT,
 		Port_Nr INT,
 		IP_Address TEXT,
