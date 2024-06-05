@@ -100,9 +100,9 @@ func (h *httpTransport) handleSSE() http.HandlerFunc {
 		ch := make(chan types.Set)
 		randomString := uuid.New().String()
 		h.sockets[randomString] = ch
-		slog.Info("New connection", "connectionId", randomString)
+		// slog.Info("New connection", "connectionId", randomString)
 		defer func() {
-			slog.Info("Closing connection", "connectionId", randomString)
+			// slog.Info("Closing connection", "connectionId", randomString)
 			delete(h.sockets, randomString)
 		}()
 		for {
