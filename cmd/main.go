@@ -11,7 +11,8 @@ import (
 	"github.com/l3montree-dev/oh-my-honeypot/packages/dbip"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/honeypot"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/pipeline"
-	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
+
 	"github.com/l3montree-dev/oh-my-honeypot/packages/store"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/transport"
 	"github.com/lmittmann/tint"
@@ -94,7 +95,7 @@ func main() {
 		Port: 1112,
 		// initializes the http transport with the fifo store
 		Getter:       &postgresqlDB,
-		RealtimeChan: make(chan set.Token),
+		RealtimeChan: make(chan types.Set),
 	})
 
 	httpTransport.Listen()
@@ -102,7 +103,7 @@ func main() {
 
 	dbIp := dbip.NewIpToCountry("dbip-country.csv")
 	// listen for SET events
-	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), tcpHoneypot.GetSETChannel(), udpHoneypot.GetSETChannel(), httpHoneypot.GetSETChannel(), postgresHoneypot.GetSETChannel()), func(input set.Token) (set.Token, error) {
+	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), tcpHoneypot.GetSETChannel(), udpHoneypot.GetSETChannel(), httpHoneypot.GetSETChannel(), postgresHoneypot.GetSETChannel()), func(input types.Set) (types.Set, error) {
 		input.COUNTRY = dbIp.Lookup(net.ParseIP(input.SUB))
 		return input, nil
 	})

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 )
 
@@ -22,7 +22,7 @@ func MostUsedUDPPorts() []int {
 
 type udpHoneypot struct {
 	ports   []int
-	setChan chan set.Token
+	setChan chan types.Set
 }
 
 func (h *udpHoneypot) Start() error {
@@ -43,7 +43,7 @@ func (h *udpHoneypot) Start() error {
 				_, conn, _ := connection.ReadFrom(buffer)
 				go func() {
 					sub, _ := utils.NetAddrToIpStr(conn)
-					h.setChan <- set.Token{
+					h.setChan <- types.Set{
 						SUB: sub,
 						ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/udp",
 						IAT: time.Now().Unix(),
@@ -62,13 +62,13 @@ func (h *udpHoneypot) Start() error {
 	return nil
 }
 
-func (h *udpHoneypot) GetSETChannel() <-chan set.Token {
+func (h *udpHoneypot) GetSETChannel() <-chan types.Set {
 	return h.setChan
 }
 
 func NewUDP(ports []int) Honeypot {
 	return &udpHoneypot{
-		setChan: make(chan set.Token),
+		setChan: make(chan types.Set),
 		ports:   ports,
 	}
 }

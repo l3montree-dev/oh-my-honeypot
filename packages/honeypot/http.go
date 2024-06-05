@@ -2,6 +2,7 @@ package honeypot
 
 import (
 	"fmt"
+
 	"html"
 	"io"
 	"log/slog"
@@ -11,7 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+
+	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 	"github.com/spf13/viper"
 )
@@ -19,7 +21,7 @@ import (
 type httpHoneypot struct {
 	port int
 	// setChan is the channel the honeypot is posting SET events to.
-	setChan chan set.Token
+	setChan chan types.Set
 }
 
 type HTTPConfig struct {
@@ -38,7 +40,7 @@ func (h *httpHoneypot) Start() error {
 		body, _ := io.ReadAll(r.Body)
 		mimeType := http.DetectContentType(body)
 		defer r.Body.Close()
-		h.setChan <- set.Token{
+		h.setChan <- types.Set{
 			SUB: sub,
 			ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
 			IAT: time.Now().Unix(),
@@ -82,7 +84,7 @@ func (h *httpHoneypot) Start() error {
 		name := r.FormValue("First Name") + " " + r.FormValue("Last Name")
 		email := r.FormValue("E-Mail")
 		body := name + "\n" + email + "\n" + r.FormValue("Message")
-		h.setChan <- set.Token{
+		h.setChan <- types.Set{
 			SUB: sub,
 			ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
 			IAT: time.Now().Unix(),
@@ -129,13 +131,13 @@ func split(useragent string) []string {
 }
 
 // GetSETChannel implements Honeypot.
-func (h *httpHoneypot) GetSETChannel() <-chan set.Token {
+func (h *httpHoneypot) GetSETChannel() <-chan types.Set {
 	return h.setChan
 }
 
 func NewHTTP(config HTTPConfig) Honeypot {
 	return &httpHoneypot{
 		port:    config.Port,
-		setChan: make(chan set.Token),
+		setChan: make(chan types.Set),
 	}
 }

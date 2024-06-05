@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/ssh"
@@ -21,7 +21,7 @@ import (
 type sshHoneypot struct {
 	port int
 	// setChan is the channel the honeypot is posting SET events to.
-	setChan chan set.Token
+	setChan chan types.Set
 }
 type SSHConfig struct {
 	Port int
@@ -33,7 +33,7 @@ func (s *sshHoneypot) Start() error {
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			// always return an error - just log the username and password
 			sub, _ := utils.NetAddrToIpStr(c.RemoteAddr())
-			s.setChan <- set.Token{
+			s.setChan <- types.Set{
 				SUB: sub,
 				ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/ssh",
 				IAT: time.Now().Unix(),
@@ -90,7 +90,7 @@ func (s *sshHoneypot) handeConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 	_, _, _, err := ssh.NewServerConn(tcpConn, config)
 	sub, _ := utils.NetAddrToIpStr(tcpConn.RemoteAddr())
 	//send the token for port scanning attack
-	s.setChan <- set.Token{
+	s.setChan <- types.Set{
 		SUB: sub,
 		ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/ssh",
 		IAT: time.Now().Unix(),
@@ -110,7 +110,7 @@ func (s *sshHoneypot) GetPort() int {
 	return s.port
 }
 
-func (s *sshHoneypot) GetSETChannel() <-chan set.Token {
+func (s *sshHoneypot) GetSETChannel() <-chan types.Set {
 	return s.setChan
 }
 
@@ -142,6 +142,6 @@ func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 func NewSSH(config SSHConfig) Honeypot {
 	return &sshHoneypot{
 		port:    config.Port,
-		setChan: make(chan set.Token),
+		setChan: make(chan types.Set),
 	}
 }

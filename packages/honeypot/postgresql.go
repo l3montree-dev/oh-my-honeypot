@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 )
 
 type postgresHoneypot struct {
 	port int
 	// setChan is the channel the honeypot is posting SET events to.
-	setChan chan set.Token
+	setChan chan types.Set
 }
 
 type PostgresConfig struct {
@@ -52,7 +52,7 @@ func (p *postgresHoneypot) Start() error {
 						n, _ := conn.Read(msg)
 						msg = msg[:n]
 						if n == 0 && !loginReceived {
-							p.setChan <- set.Token{
+							p.setChan <- types.Set{
 								SUB: sub,
 								ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/postgres",
 								IAT: time.Now().Unix(),
@@ -77,7 +77,7 @@ func (p *postgresHoneypot) Start() error {
 							continue
 						} else if isPasswordMessage(msg) && !passwordReceived {
 							password := string(msg[5 : len(msg)-1])
-							p.setChan <- set.Token{
+							p.setChan <- types.Set{
 								SUB: sub,
 								ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
 								IAT: time.Now().Unix(),
@@ -108,14 +108,14 @@ func isSSLRequest(payload []byte) bool {
 }
 
 // GetSETChannel implements Honeypot.
-func (p *postgresHoneypot) GetSETChannel() <-chan set.Token {
+func (p *postgresHoneypot) GetSETChannel() <-chan types.Set {
 	return p.setChan
 }
 
 func NewPostgres(config PostgresConfig) Honeypot {
 	return &postgresHoneypot{
 		port:    config.Port,
-		setChan: make(chan set.Token),
+		setChan: make(chan types.Set),
 	}
 }
 

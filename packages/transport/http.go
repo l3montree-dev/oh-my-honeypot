@@ -9,33 +9,33 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/honeypot"
-	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 )
 
 type getter interface {
-	GetAttacksIn24Hours() []set.Token
-	GetStatsIP() []set.Token
-	GetStatsCountry() map[string]any
-	GetStatsPort() []set.Token
-	GetStatsUsername() []set.Token
-	GetStatsPassword() []set.Token
-	GetStatsURL() []set.Token
-	GetCountIn24Hours() []set.Token
-	GetCountIn7Days() []set.Token
-	GetCountIn6Months() []set.Token
+	GetAttacksIn24Hours() []types.Set
+	GetIPStats() []types.IPStats
+	GetCountryStats() []types.CountryStats
+	GetPortStats() []types.PortStats
+	GetUsernameStats() []types.UsernameStats
+	GetPasswordStats() []types.PasswordStats
+	GetPathStats() []types.PathStats
+	GetCountIn24Hours() []types.CountIn24HoursStats
+	GetCountIn7Days() []types.CountIn7DaysStats
+	GetCountIn6Months() []types.CountIn6MonthsStats
 }
 
 type HTTPConfig struct {
 	Port         int
 	Getter       getter
-	RealtimeChan chan set.Token
+	RealtimeChan chan types.Set
 }
 
 type httpTransport struct {
 	port         int
 	getter       getter
-	RealtimeChan chan set.Token
-	sockets      map[string]chan set.Token
+	RealtimeChan chan types.Set
+	sockets      map[string]chan types.Set
 }
 
 func NewHTTP(config HTTPConfig) *httpTransport {
@@ -43,7 +43,7 @@ func NewHTTP(config HTTPConfig) *httpTransport {
 		port:         config.Port,
 		getter:       config.Getter,
 		RealtimeChan: config.RealtimeChan,
-		sockets:      make(map[string]chan set.Token),
+		sockets:      make(map[string]chan types.Set),
 	}
 	go func() {
 		for msg := range httpTransport.RealtimeChan {
@@ -55,20 +55,20 @@ func NewHTTP(config HTTPConfig) *httpTransport {
 	return httpTransport
 }
 
-func marshalMsgs(r *http.Request, msgs []set.Token) ([]byte, error) {
-	if r.URL.Query().Get("format") == "csv" || r.Header.Get("Accept") == "text/csv" {
-		var csv string
-		for _, msg := range msgs {
-			csv += fmt.Sprintf("%d,%s,%s,%d\n", msg.IAT, msg.SUB, msg.JTI, getPort(msg))
-		}
-		return []byte(csv), nil
-	}
-	arr, err := json.Marshal(msgs)
-	if err != nil {
-		return nil, err
-	}
-	return arr, nil
-}
+// func json.Marshal(r *http.Request, msgs []set.types) ([]byte, error) {
+// 	if r.URL.Query().Get("format") == "csv" || r.Header.Get("Accept") == "text/csv" {
+// 		var csv string
+// 		for _, msg := range msgs {
+// 			csv += fmt.Sprintf("%d,%s,%s,%d\n", msg.IAT, msg.SUB, msg.JTI, getPort(msg))
+// 		}
+// 		return []byte(csv), nil
+// 	}
+// 	arr, err := json.Marshal(msgs)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return arr, nil
+// }
 
 // Set default HTTP headers
 func setDefaultHeaders(w http.ResponseWriter) {
@@ -85,12 +85,12 @@ func (h *httpTransport) Listen() {
 	mux.Handle("GET /stats/count-in-24hours", h.handleCountIn24Hours())
 	mux.Handle("GET /stats/count-in-7days", h.handleCountIn7Days())
 	mux.Handle("GET /stats/count-in-6months", h.handleCountIn6Monts())
-	mux.Handle("GET /stats/country", h.handleStatsCountry())
-	mux.Handle("GET /stats/ip", h.handleStatsIP())
-	mux.Handle("GET /stats/port", h.handleStatsPort())
-	mux.Handle("GET /stats/username", h.handleStatsUsername())
-	mux.Handle("GET /stats/password", h.handleStatsPassword())
-	mux.Handle("GET /stats/url", h.handleStatsURL())
+	mux.Handle("GET /stats/country", h.handleCountryStats())
+	mux.Handle("GET /stats/ip", h.handleIPStats())
+	mux.Handle("GET /stats/port", h.handlePortStats())
+	mux.Handle("GET /stats/username", h.handleUsernameStats())
+	mux.Handle("GET /stats/password", h.handlePasswordStats())
+	mux.Handle("GET /stats/path", h.handlePathStats())
 
 	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux) // nolint
 	slog.Info("HTTP transport listening", "port", h.port)
@@ -111,7 +111,7 @@ func (h *httpTransport) handleSSE() http.HandlerFunc {
 			http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
 			return
 		}
-		ch := make(chan set.Token)
+		ch := make(chan types.Set)
 		randomString := uuid.New().String()
 		h.sockets[randomString] = ch
 		slog.Info("New connection", "connectionId", randomString)
@@ -140,7 +140,7 @@ func (h *httpTransport) handleSSE() http.HandlerFunc {
 func (h *httpTransport) handleAttacksIn24Hours() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		msgs := h.getter.GetAttacksIn24Hours()
-		arr, err := marshalMsgs(r, msgs)
+		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -159,7 +159,7 @@ func (h *httpTransport) handleAttacksIn24Hours() http.HandlerFunc {
 func (h *httpTransport) handleCountIn24Hours() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		msgs := h.getter.GetCountIn24Hours()
-		arr, err := marshalMsgs(r, msgs)
+		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -178,7 +178,7 @@ func (h *httpTransport) handleCountIn24Hours() http.HandlerFunc {
 func (h *httpTransport) handleCountIn7Days() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		msgs := h.getter.GetCountIn7Days()
-		arr, err := marshalMsgs(r, msgs)
+		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -197,7 +197,7 @@ func (h *httpTransport) handleCountIn7Days() http.HandlerFunc {
 func (h *httpTransport) handleCountIn6Monts() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		msgs := h.getter.GetCountIn6Months()
-		arr, err := marshalMsgs(r, msgs)
+		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -213,9 +213,9 @@ func (h *httpTransport) handleCountIn6Monts() http.HandlerFunc {
 }
 
 // handleStatsCountry handles the request for number of attacks per country
-func (h *httpTransport) handleStatsCountry() http.HandlerFunc {
+func (h *httpTransport) handleCountryStats() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		msgs := h.getter.GetStatsCountry()
+		msgs := h.getter.GetCountryStats()
 		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -232,10 +232,10 @@ func (h *httpTransport) handleStatsCountry() http.HandlerFunc {
 }
 
 // handleStatsIP handles the request for number of attacks per IP
-func (h *httpTransport) handleStatsIP() http.HandlerFunc {
+func (h *httpTransport) handleIPStats() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		msgs := h.getter.GetStatsIP()
-		arr, err := marshalMsgs(r, msgs)
+		msgs := h.getter.GetIPStats()
+		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -251,10 +251,10 @@ func (h *httpTransport) handleStatsIP() http.HandlerFunc {
 }
 
 // handleStatsUsername handles the request for number of attacks per username
-func (h *httpTransport) handleStatsUsername() http.HandlerFunc {
+func (h *httpTransport) handleUsernameStats() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		msgs := h.getter.GetStatsUsername()
-		arr, err := marshalMsgs(r, msgs)
+		msgs := h.getter.GetUsernameStats()
+		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -270,10 +270,10 @@ func (h *httpTransport) handleStatsUsername() http.HandlerFunc {
 }
 
 // handleStatsPassword handles the request for number of attacks per password
-func (h *httpTransport) handleStatsPassword() http.HandlerFunc {
+func (h *httpTransport) handlePasswordStats() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		msgs := h.getter.GetStatsPassword()
-		arr, err := marshalMsgs(r, msgs)
+		msgs := h.getter.GetPasswordStats()
+		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -289,10 +289,10 @@ func (h *httpTransport) handleStatsPassword() http.HandlerFunc {
 }
 
 // handleStatsPort handles the request for number of attacks per port
-func (h *httpTransport) handleStatsPort() http.HandlerFunc {
+func (h *httpTransport) handlePortStats() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		msgs := h.getter.GetStatsPort()
-		arr, err := marshalMsgs(r, msgs)
+		msgs := h.getter.GetPortStats()
+		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -308,10 +308,10 @@ func (h *httpTransport) handleStatsPort() http.HandlerFunc {
 }
 
 // handleStatsURL handles the request for number of attacks per URL
-func (h *httpTransport) handleStatsURL() http.HandlerFunc {
+func (h *httpTransport) handlePathStats() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		msgs := h.getter.GetStatsURL()
-		arr, err := marshalMsgs(r, msgs)
+		msgs := h.getter.GetPathStats()
+		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -326,9 +326,8 @@ func (h *httpTransport) handleStatsURL() http.HandlerFunc {
 	}
 }
 
-func getPort(input set.Token) int {
+func getPort(input types.Set) int {
 	var portEvent map[string]interface{}
-
 	if ev, ok := input.Events[honeypot.PortEventID]; ok {
 		portEvent = ev
 	} else if ev, ok := input.Events[honeypot.LoginEventID]; ok {
@@ -336,7 +335,6 @@ func getPort(input set.Token) int {
 	} else if ev, ok := input.Events[honeypot.LoginEventID]; ok {
 		portEvent = ev
 	}
-
 	// the port is either float64 or int
 	// so we need to cast it to int
 	switch portEvent["port"].(type) {

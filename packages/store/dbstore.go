@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/l3montree-dev/oh-my-honeypot/packages/honeypot"
-	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	_ "github.com/lib/pq"
 )
 
@@ -23,11 +23,9 @@ type PostgreSQL struct {
 	DB       *sql.DB
 }
 
-var attackCounter []set.Token
-
-func (p *PostgreSQL) Listen() chan<- set.Token {
+func (p *PostgreSQL) Listen() chan<- types.Set {
 	// listen to all tokens passed into the channel
-	res := make(chan set.Token)
+	res := make(chan types.Set)
 	go func() {
 		for input := range res {
 			go func() {
@@ -239,7 +237,7 @@ func savePayload(id string, payload string) error {
 }
 
 // GetAttacksIn24Hours returns attack events in 24hours from DB
-func (p *PostgreSQL) GetAttacksIn24Hours() []set.Token {
+func (p *PostgreSQL) GetAttacksIn24Hours() []types.Set {
 	// Get all attacks from the last 24 hours
 	oneDayAgo := time.Now().Add(-24 * time.Hour).Unix()
 	query := `SELECT * FROM attack_log WHERE time_of_event > $1;`
@@ -249,7 +247,7 @@ func (p *PostgreSQL) GetAttacksIn24Hours() []set.Token {
 	}
 	defer rows.Close()
 
-	var tokens []set.Token
+	var tokens []types.Set
 	for rows.Next() {
 		var ip_address, country, attack_id, attack_type string
 		var time_of_event int
@@ -258,7 +256,7 @@ func (p *PostgreSQL) GetAttacksIn24Hours() []set.Token {
 		if err != nil {
 			log.Panic(err)
 		}
-		token := set.Token{
+		token := types.Set{
 			SUB:     ip_address,
 			COUNTRY: country,
 			ISS:     "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
@@ -291,7 +289,7 @@ func (p *PostgreSQL) GetAttacksIn24Hours() []set.Token {
 }
 
 // GetCountIn24Hours returns number of attacks per day for last 7 days from DB
-func (p *PostgreSQL) GetCountIn24Hours() []set.Token {
+func (p *PostgreSQL) GetCountIn24Hours() []types.CountIn24HoursStats {
 	rows, err := p.DB.Query(`
 	WITH Hourly_Attacks AS (
 		SELECT
@@ -326,7 +324,7 @@ func (p *PostgreSQL) GetCountIn24Hours() []set.Token {
 		log.Panic(err)
 	}
 	defer rows.Close()
-	var tokens []set.Token
+	var tokens []types.CountIn24HoursStats
 	for rows.Next() {
 		var hour int
 		var count int
@@ -334,16 +332,11 @@ func (p *PostgreSQL) GetCountIn24Hours() []set.Token {
 		if err != nil {
 			log.Panic(err)
 		}
-		token := set.Token{
-			ISS: "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
-			Events: map[string]map[string]interface{}{
-				"properties": {
-					"hour":  hour,
-					"count": count,
-				},
-			},
+		res := types.CountIn24HoursStats{
+			Hour:  string(hour),
+			Count: count,
 		}
-		tokens = append(tokens, token)
+		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
 		log.Panic(err)
@@ -351,37 +344,32 @@ func (p *PostgreSQL) GetCountIn24Hours() []set.Token {
 	return tokens
 }
 
-func (p *PostgreSQL) GetCountIn7Days() []set.Token {
+func (p *PostgreSQL) GetCountIn7Days() []types.CountIn7DaysStats {
 	rows, err := p.DB.Query(`
-		SELECT TO_CHAR(TO_TIMESTAMP(time_of_event), 'DD/MM') AS attack_date,
-		COUNT(*) AS num_attacks
+		SELECT TO_CHAR(TO_TIMESTAMP(time_of_event), 'DD/MM') AS date,
+		COUNT(*) AS count
 		FROM attack_log
 		WHERE TO_TIMESTAMP(time_of_event) >= CURRENT_DATE - INTERVAL '7 days'
 		GROUP BY TO_CHAR(TO_TIMESTAMP(time_of_event), 'DD/MM')
-		ORDER BY attack_date;
+		ORDER BY date;
 		`)
 	if err != nil {
 		log.Panic(err)
 	}
 	defer rows.Close()
-	var tokens []set.Token
+	var tokens []types.CountIn7DaysStats
 	for rows.Next() {
-		var attack_date string
-		var num_attacks int
-		err := rows.Scan(&attack_date, &num_attacks)
+		var date string
+		var count int
+		err := rows.Scan(&date, &count)
 		if err != nil {
 			log.Panic(err)
 		}
-		token := set.Token{
-			ISS: "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
-			Events: map[string]map[string]interface{}{
-				"properties": {
-					"date":  attack_date,
-					"count": num_attacks,
-				},
-			},
+		res := types.CountIn7DaysStats{
+			Date:  date,
+			Count: count,
 		}
-		tokens = append(tokens, token)
+		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
 		log.Panic(err)
@@ -389,37 +377,32 @@ func (p *PostgreSQL) GetCountIn7Days() []set.Token {
 	return tokens
 }
 
-func (p *PostgreSQL) GetCountIn6Months() []set.Token {
+func (p *PostgreSQL) GetCountIn6Months() []types.CountIn6MonthsStats {
 	rows, err := p.DB.Query(`
-		SELECT TO_CHAR(TO_TIMESTAMP(time_of_event), 'MM/YYYY') AS attack_month,
-		COUNT(*) AS num_attacks
+		SELECT TO_CHAR(TO_TIMESTAMP(time_of_event), 'MM/YYYY') AS month,
+		COUNT(*) AS count
 		FROM attack_log
 		WHERE TO_TIMESTAMP(time_of_event) >= CURRENT_DATE - INTERVAL '6 months'
 		GROUP BY TO_CHAR(TO_TIMESTAMP(time_of_event), 'MM/YYYY')
-		ORDER BY attack_month;
+		ORDER BY month;
 		`)
 	if err != nil {
 		log.Panic(err)
 	}
 	defer rows.Close()
-	var tokens []set.Token
+	var tokens []types.CountIn6MonthsStats
 	for rows.Next() {
-		var attack_month string
-		var num_attacks int
-		err := rows.Scan(&attack_month, &num_attacks)
+		var month string
+		var count int
+		err := rows.Scan(&month, &count)
 		if err != nil {
 			log.Panic(err)
 		}
-		token := set.Token{
-			ISS: "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
-			Events: map[string]map[string]interface{}{
-				"properties": {
-					"month": attack_month,
-					"count": num_attacks,
-				},
-			},
+		res := types.CountIn6MonthsStats{
+			Month: month,
+			Count: count,
 		}
-		tokens = append(tokens, token)
+		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
 		log.Panic(err)
@@ -427,7 +410,7 @@ func (p *PostgreSQL) GetCountIn6Months() []set.Token {
 	return tokens
 }
 
-func (p *PostgreSQL) GetStatsCountry() map[string]any {
+func (p *PostgreSQL) GetCountryStats() []types.CountryStats {
 	rows, err := p.DB.Query(`
 		SELECT attack_log.country, COUNT(attack_log.country) AS count
 		FROM attack_log
@@ -439,8 +422,7 @@ func (p *PostgreSQL) GetStatsCountry() map[string]any {
 		log.Panic(err)
 	}
 	defer rows.Close()
-
-	res := make(map[string]any)
+	var tokens []types.CountryStats
 	for rows.Next() {
 		var country string
 		var count int
@@ -448,15 +430,19 @@ func (p *PostgreSQL) GetStatsCountry() map[string]any {
 		if err != nil {
 			log.Panic(err)
 		}
-		res[country] = count
+		res := types.CountryStats{
+			Country: country,
+			Count:   count,
+		}
+		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
 		log.Panic(err)
 	}
-	return res
+	return tokens
 }
 
-func (p *PostgreSQL) GetStatsIP() map[string]any {
+func (p *PostgreSQL) GetIPStats() []types.IPStats {
 	rows, err := p.DB.Query(`
 		SELECT attack_log.ip_address, attack_log.country, COUNT(attack_log.ip_address) AS count
 		FROM attack_log
@@ -469,7 +455,7 @@ func (p *PostgreSQL) GetStatsIP() map[string]any {
 	}
 	defer rows.Close()
 
-	res := make(map[string]any)
+	var tokens []types.IPStats
 	for rows.Next() {
 		var ip_address, country string
 		var count int
@@ -477,20 +463,20 @@ func (p *PostgreSQL) GetStatsIP() map[string]any {
 		if err != nil {
 			log.Panic(err)
 		}
-		res[ip_address] = map[string]any{
-			"country": country,
-			"count":   count,
+		res := types.IPStats{
+			IP:      ip_address,
+			Country: country,
+			Count:   count,
 		}
-
+		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
 		log.Panic(err)
 	}
-
-	return res
+	return tokens
 }
 
-func (p *PostgreSQL) GetStatsUsername() map[string]any {
+func (p *PostgreSQL) GetUsernameStats() []types.UsernameStats {
 	rows, err := p.DB.Query(`
 		SELECT login_attempt.username, COUNT(login_attempt.username) AS count
 		FROM login_attempt
@@ -502,8 +488,7 @@ func (p *PostgreSQL) GetStatsUsername() map[string]any {
 		log.Panic(err)
 	}
 	defer rows.Close()
-
-	res := make(map[string]any)
+	var tokens []types.UsernameStats
 	for rows.Next() {
 		var username string
 		var count int
@@ -511,14 +496,18 @@ func (p *PostgreSQL) GetStatsUsername() map[string]any {
 		if err != nil {
 			log.Panic(err)
 		}
-		res[username] = count
+		res := types.UsernameStats{
+			Username: username,
+			Count:    count,
+		}
+		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
 		log.Panic(err)
 	}
-	return res
+	return tokens
 }
-func (p *PostgreSQL) GetStatsPassword() []set.Token {
+func (p *PostgreSQL) GetPasswordStats() []types.PasswordStats {
 	rows, err := p.DB.Query(`
 		SELECT login_attempt.password, COUNT(login_attempt.password) AS count
 		FROM login_attempt
@@ -531,7 +520,7 @@ func (p *PostgreSQL) GetStatsPassword() []set.Token {
 	}
 	defer rows.Close()
 
-	var tokens []set.Token
+	var tokens []types.PasswordStats
 	for rows.Next() {
 		var password string
 		var count int
@@ -539,16 +528,11 @@ func (p *PostgreSQL) GetStatsPassword() []set.Token {
 		if err != nil {
 			log.Panic(err)
 		}
-		token := set.Token{
-			ISS: "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
-			Events: map[string]map[string]interface{}{
-				"properties": {
-					"password": password,
-					"count":    count,
-				},
-			},
+		res := types.PasswordStats{
+			Password: password,
+			Count:    count,
 		}
-		tokens = append(tokens, token)
+		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
 		log.Panic(err)
@@ -556,7 +540,7 @@ func (p *PostgreSQL) GetStatsPassword() []set.Token {
 	return tokens
 }
 
-func (p *PostgreSQL) GetStatsPort() []set.Token {
+func (p *PostgreSQL) GetPortStats() []types.PortStats {
 	rows, err := p.DB.Query(`
 		SELECT attack_log.port_nr, COUNT(attack_log.port_nr) AS count
 		FROM attack_log
@@ -569,23 +553,18 @@ func (p *PostgreSQL) GetStatsPort() []set.Token {
 	}
 	defer rows.Close()
 
-	var tokens []set.Token
+	var tokens []types.PortStats
 	for rows.Next() {
 		var count, port_nr int
 		err := rows.Scan(&port_nr, &count)
 		if err != nil {
 			log.Panic(err)
 		}
-		token := set.Token{
-			ISS: "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
-			Events: map[string]map[string]interface{}{
-				"properties": {
-					"port":  port_nr,
-					"count": count,
-				},
-			},
+		res := types.PortStats{
+			Port:  string(port_nr),
+			Count: count,
 		}
-		tokens = append(tokens, token)
+		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
 		log.Panic(err)
@@ -593,7 +572,7 @@ func (p *PostgreSQL) GetStatsPort() []set.Token {
 	return tokens
 }
 
-func (p *PostgreSQL) GetStatsURL() []set.Token {
+func (p *PostgreSQL) GetPathStats() []types.PathStats {
 	rows, err := p.DB.Query(`
 		SELECT http_request.path, COUNT(http_request.path) AS count
 		FROM http_request
@@ -606,7 +585,7 @@ func (p *PostgreSQL) GetStatsURL() []set.Token {
 	}
 	defer rows.Close()
 
-	var tokens []set.Token
+	var tokens []types.PathStats
 	for rows.Next() {
 		var path string
 		var count int
@@ -614,16 +593,11 @@ func (p *PostgreSQL) GetStatsURL() []set.Token {
 		if err != nil {
 			log.Panic(err)
 		}
-		token := set.Token{
-			ISS: "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
-			Events: map[string]map[string]interface{}{
-				"properties": {
-					"path":  path,
-					"count": count,
-				},
-			},
+		res := types.PathStats{
+			Path:  path,
+			Count: count,
 		}
-		tokens = append(tokens, token)
+		tokens = append(tokens, res)
 	}
 	if err := rows.Err(); err != nil {
 		log.Panic(err)

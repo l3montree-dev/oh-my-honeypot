@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 )
 
@@ -21,10 +21,10 @@ type Honeypot interface {
 	// should not block
 	Start() error
 	// GetSETChannel returns the channel the honeypot is posting SET events to.
-	GetSETChannel() <-chan set.Token
+	GetSETChannel() <-chan types.Set
 }
 
-func DetectPortScan(tokens []set.Token) []set.Token {
+func DetectPortScan(tokens []types.Set) []types.Set {
 	// if there are more than 5 tokens in the slice from the same IP
 	// it is possible that a port scan is happening
 	subCount := make(map[string][]int)
@@ -44,14 +44,14 @@ func DetectPortScan(tokens []set.Token) []set.Token {
 			// remove the tokens from the slice
 			tokens = utils.Filter(
 				tokens,
-				func(t set.Token) bool {
+				func(t types.Set) bool {
 					return t.SUB != sub
 				},
 			)
 			sort.Slice(ports, func(i, j int) bool {
 				return ports[i] < ports[j]
 			})
-			tokens = append(tokens, set.Token{
+			tokens = append(tokens, types.Set{
 				SUB: sub,
 				ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot",
 				IAT: time.Now().Unix(),

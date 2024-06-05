@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
+	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 )
 
@@ -43,7 +43,7 @@ func MostUsedTCPPorts() []int {
 
 type tcpHoneypot struct {
 	ports   []int
-	setChan chan set.Token
+	setChan chan types.Set
 }
 
 func (h *tcpHoneypot) Start() error {
@@ -71,7 +71,7 @@ func (h *tcpHoneypot) Start() error {
 					defer conn.Close()
 
 					sub, _ := utils.NetAddrToIpStr(conn.RemoteAddr())
-					h.setChan <- set.Token{
+					h.setChan <- types.Set{
 						SUB: sub,
 						ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/tcp",
 						IAT: time.Now().Unix(),
@@ -89,13 +89,13 @@ func (h *tcpHoneypot) Start() error {
 	return nil
 }
 
-func (h *tcpHoneypot) GetSETChannel() <-chan set.Token {
+func (h *tcpHoneypot) GetSETChannel() <-chan types.Set {
 	return h.setChan
 }
 
 func NewTCP(ports []int) Honeypot {
 	return &tcpHoneypot{
-		setChan: make(chan set.Token),
+		setChan: make(chan types.Set),
 		ports:   ports,
 	}
 }

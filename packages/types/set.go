@@ -1,4 +1,4 @@
-package set
+package types
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 
 // Security Event Token
 // Proposed by the IETF in RFC 8417
-type Token struct {
+type Set struct {
 	// Subject
 	// always an ip address
 	SUB     string `json:"sub"`
@@ -24,11 +24,11 @@ type Token struct {
 	Events map[string]map[string]interface{} `json:"events"`
 }
 
-func Marshal(t Token) ([]byte, error) {
+func Marshal(t Set) ([]byte, error) {
 	return json.Marshal(t)
 }
 
-func (t Token) GetIssuedAt() time.Time {
+func (t Set) GetIssuedAt() time.Time {
 	return time.Unix(t.IAT, 0)
 }
 
