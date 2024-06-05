@@ -1,8 +1,8 @@
 package types
 
 type CountIn24HoursStats struct {
-	Hour  string `json:"hour"`
-	Count int    `json:"count"`
+	Hour  int `json:"hour"`
+	Count int `json:"count"`
 }
 type CountIn7DaysStats struct {
 	Date  string `json:"date"`
