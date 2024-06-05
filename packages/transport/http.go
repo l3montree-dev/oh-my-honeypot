@@ -91,6 +91,7 @@ func (h *httpTransport) Listen() {
 	mux.Handle("GET /stats/username", h.handleStatsUsername())
 	mux.Handle("GET /stats/password", h.handleStatsPassword())
 	mux.Handle("GET /stats/path", h.handleStatsURL())
+	mux.Handle("GET /health", h.handleHealth())
 
 	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux) // nolint
 	slog.Info("HTTP transport listening", "port", h.port)
@@ -323,6 +324,12 @@ func (h *httpTransport) handleStatsURL() http.HandlerFunc {
 			// Handle the error appropriately
 			return
 		}
+	}
+}
+
+func (h *httpTransport) handleHealth() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
