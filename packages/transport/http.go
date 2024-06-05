@@ -55,21 +55,6 @@ func NewHTTP(config HTTPConfig) *httpTransport {
 	return httpTransport
 }
 
-// func json.Marshal(r *http.Request, msgs []set.types) ([]byte, error) {
-// 	if r.URL.Query().Get("format") == "csv" || r.Header.Get("Accept") == "text/csv" {
-// 		var csv string
-// 		for _, msg := range msgs {
-// 			csv += fmt.Sprintf("%d,%s,%s,%d\n", msg.IAT, msg.SUB, msg.JTI, getPort(msg))
-// 		}
-// 		return []byte(csv), nil
-// 	}
-// 	arr, err := json.Marshal(msgs)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return arr, nil
-// }
-
 // Set default HTTP headers
 func setDefaultHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
