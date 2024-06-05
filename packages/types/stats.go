@@ -34,6 +34,6 @@ type PathStats struct {
 	Count int    `json:"count"`
 }
 type PortStats struct {
-	Port  string `json:"port"`
-	Count int    `json:"count"`
+	Port  int `json:"port"`
+	Count int `json:"count"`
 }

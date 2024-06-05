@@ -560,7 +560,7 @@ func (p *PostgreSQL) GetPortStats() []types.PortStats {
 			slog.Error("Error scanning the database", "err", err)
 		}
 		res := types.PortStats{
-			Port:  string(port_nr),
+			Port:  port_nr,
 			Count: count,
 		}
 		tokens = append(tokens, res)
