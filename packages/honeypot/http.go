@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
+	"github.com/spf13/viper"
 )
 
 type httpHoneypot struct {
@@ -29,6 +30,7 @@ func (h *httpHoneypot) Start() error {
 	mux := http.NewServeMux()
 	//FileServer to serve static files of hidden ontact form
 	fileServer := http.FileServer(http.Dir("./public"))
+	mux.Handle("/contact-us/", fileServer)
 	mux.HandleFunc("/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
 		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
@@ -54,10 +56,12 @@ func (h *httpHoneypot) Start() error {
 				},
 			},
 		}
-		http.StripPrefix("/contact-us/", fileServer).ServeHTTP(w, r)
+
 		// Set the headers to make the honeypot look like an vulnerable server
-		w.Header().Set("Server", "Apache/2.2.3 (Ubuntu)")
-		w.Header().Set("X-Powered-By", "PHP/4.1.0")
+		//iterate over the headers and set them
+		for key, value := range viper.GetStringMap("http.headers") {
+			w.Header().Set(key, value.(string))
+		}
 		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
 	})
 	// Handle the form submission

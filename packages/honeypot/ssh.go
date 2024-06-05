@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/set"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
+	"github.com/spf13/viper"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -28,8 +29,6 @@ type SSHConfig struct {
 
 func (s *sshHoneypot) Start() error {
 	config := &ssh.ServerConfig{
-		//Vulnerable ssh version to attract attackers
-		ServerVersion: "SSH-2.0-OpenSSH_5.8p2",
 		//Define a function to run when a client attempts a password login
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			// always return an error - just log the username and password
@@ -52,6 +51,10 @@ func (s *sshHoneypot) Start() error {
 			return nil, fmt.Errorf("password rejected for %q", c.User())
 		},
 	}
+
+	//Vulnerable ssh version to attract attackers
+	config.ServerVersion = viper.GetString("ssh.ServerVersion")
+
 	privateBytes := encodePrivateKeyToPEM(generatePrivateKey())
 	private, err := ssh.ParsePrivateKey(privateBytes)
 

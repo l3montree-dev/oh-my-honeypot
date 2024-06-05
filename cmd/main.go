@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"net"
 	"os"
@@ -14,13 +15,23 @@ import (
 	"github.com/l3montree-dev/oh-my-honeypot/packages/store"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/transport"
 	"github.com/lmittmann/tint"
+	"github.com/spf13/viper"
 )
 
 func main() {
 	InitLogger()
+	// Initialize viper
+	viper.New()
+	viper.AddConfigPath(".")
+	viper.SetConfigFile("vuln-config.yaml")
+	err := viper.ReadInConfig()
+	if err != nil {
+		fmt.Println("Error on Reading Viper Config")
+		panic(err)
+	}
 
 	// Load the .env file
-	err := godotenv.Load(".env")
+	err = godotenv.Load(".env")
 	if err != nil {
 		slog.Warn("Error loading .env file: %s", err)
 	}
