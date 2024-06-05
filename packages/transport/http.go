@@ -15,7 +15,7 @@ import (
 type getter interface {
 	GetAttacksIn24Hours() []set.Token
 	GetStatsIP() []set.Token
-	GetStatsCountry() []set.Token
+	GetStatsCountry() map[string]any
 	GetStatsPort() []set.Token
 	GetStatsUsername() []set.Token
 	GetStatsPassword() []set.Token
@@ -216,7 +216,7 @@ func (h *httpTransport) handleCountIn6Monts() http.HandlerFunc {
 func (h *httpTransport) handleStatsCountry() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		msgs := h.getter.GetStatsCountry()
-		arr, err := marshalMsgs(r, msgs)
+		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
