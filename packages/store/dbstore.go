@@ -250,7 +250,7 @@ func (p *PostgreSQL) GetAttacksIn24Hours() []types.Set {
 		var ip_address, country, attack_id, attack_type, honeypot_id string
 		var time_of_event int
 		var port_nr int
-		err := rows.Scan(&attack_id, &time_of_event, &port_nr, &ip_address, &country, &attack_type, &honeypot_id)
+		err := rows.Scan(&attack_id, &honeypot_id, &time_of_event, &port_nr, &ip_address, &country, &attack_type)
 		if err != nil {
 			slog.Error("Error scanning the database", "err", err)
 		}
