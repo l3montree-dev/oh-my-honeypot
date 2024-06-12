@@ -134,8 +134,7 @@ func searchUsername(payload []byte) string {
 		return ""
 	}
 	startIndex := userIndex + 5
-	username := payload[startIndex:databaseIndex]
-
+	username := payload[startIndex : databaseIndex-1]
 	return string(username)
 }
 
