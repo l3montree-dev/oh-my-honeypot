@@ -45,3 +45,8 @@ The honeypot uses the [DB-IP](https://db-ip.com/) service to determine the geolo
 
 
 <a href='https://db-ip.com'>IP Geolocation by DB-IP</a>
+
+
+## Credits
+
+This project is based on the [Neuland@Homeland GmbH 'Oh-my-honeypot'](https://gitlab.com/neuland-at-homeland/oh-my-honeypot).

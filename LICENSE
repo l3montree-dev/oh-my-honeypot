@@ -1,6 +1,10 @@
 MIT License
 
-Copyright (c) 2023 Neuland@Homeland GmbH
+Copyright (c) 2024 L3montree UG (haftungsbeschränkt)
+
+Das Projekt basiert auf: https://gitlab.com/neuland-at-homeland/oh-my-honeypot 
+(MIT Lizenz, Copyright bis https://github.com/l3montree-dev/oh-my-honeypot/commit/b5726ded254bc8e68245e70ad00274c146a3698d - 
+Copyright (c) 2023 Neuland@Homeland GmbH)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
