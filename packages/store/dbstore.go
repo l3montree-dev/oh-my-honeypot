@@ -12,6 +12,7 @@ import (
 	"github.com/l3montree-dev/oh-my-honeypot/packages/honeypot"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	_ "github.com/lib/pq"
+	"golang.org/x/sync/errgroup"
 )
 
 type PostgreSQL struct {
@@ -208,6 +209,12 @@ func (p *PostgreSQL) Start() error {
 	if err != nil {
 		slog.Error("Error creating table http_spam", "err", err)
 	}
+	_, err = p.DB.Exec(`
+	CREATE INDEX attacklog_timestamp_hpid
+	ON attack_log(honeypot_id, TO_TIMESTAMP(time_of_event));`)
+	if err != nil {
+		slog.Error("Error creating table http_spam", "err", err)
+	}
 
 	slog.Info("PostgreSQL store started")
 	return nil
@@ -241,52 +248,64 @@ func (p *PostgreSQL) GetAttacksIn24Hours() types.SetResponse {
 	var idRes types.SetResponse = make(map[string][]types.Set)
 	oneDayAgo := time.Now().Add(-24 * time.Hour).Unix()
 	honeypotIDs := p.honeypotIds()
+
+	wg := errgroup.Group{}
+	wg.SetLimit(10)
 	for _, honeypotID := range honeypotIDs {
-		query := `
-			SELECT * FROM attack_log 
-			WHERE time_of_event > $1
-			AND attack_log.honeypot_id=$2;`
-		rows, err := p.DB.Query(query, oneDayAgo, honeypotID)
-		if err != nil {
-			slog.Error("Error querying the database", "err", err)
-		}
-		defer rows.Close()
-
-		var tokens []types.Set
-		for rows.Next() {
-			var ip_address, country, attack_id, attack_type, honeypot_id string
-			var time_of_event int
-			var port_nr int
-			err := rows.Scan(&attack_id, &honeypot_id, &time_of_event, &port_nr, &ip_address, &country, &attack_type)
+		wg.Go(func() error {
+			query := `
+				SELECT * FROM attack_log 
+				WHERE time_of_event > $1
+				AND attack_log.honeypot_id=$2;`
+			rows, err := p.DB.Query(query, oneDayAgo, honeypotID)
 			if err != nil {
-				slog.Error("Error scanning the database", "err", err)
+				slog.Error("Error querying the database", "err", err)
+				return err
 			}
-			res := types.Set{
-				SUB:     ip_address,
-				COUNTRY: country,
-				ISS:     "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
-				IAT:     int64(time_of_event),
-				JTI:     attack_id,
-				Events:  make(map[string]map[string]interface{}),
-			}
-			if attack_type == "Login Attempt" {
-				res.Events[honeypot.LoginEventID] = map[string]interface{}{
-					"port": port_nr,
-				}
-			} else if attack_type == "HTTP Request" {
-				res.Events[honeypot.HTTPEventID] = map[string]interface{}{
-					"port": port_nr,
-				}
-			} else if attack_type == "Port Scanning" {
-				res.Events[honeypot.PortEventID] = map[string]interface{}{
-					"port": port_nr,
-				}
-			}
+			defer rows.Close()
 
-			tokens = append(tokens, res)
-		}
-		idRes[honeypotID] = tokens
+			var tokens []types.Set
+			for rows.Next() {
+				var ip_address, country, attack_id, attack_type, honeypot_id string
+				var time_of_event int
+				var port_nr int
+				err := rows.Scan(&attack_id, &honeypot_id, &time_of_event, &port_nr, &ip_address, &country, &attack_type)
+				if err != nil {
+					slog.Error("Error scanning the database", "err", err)
+				}
+				res := types.Set{
+					SUB:     ip_address,
+					COUNTRY: country,
+					ISS:     "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
+					IAT:     int64(time_of_event),
+					JTI:     attack_id,
+					Events:  make(map[string]map[string]interface{}),
+				}
+				if attack_type == "Login Attempt" {
+					res.Events[honeypot.LoginEventID] = map[string]interface{}{
+						"port": port_nr,
+					}
+				} else if attack_type == "HTTP Request" {
+					res.Events[honeypot.HTTPEventID] = map[string]interface{}{
+						"port": port_nr,
+					}
+				} else if attack_type == "Port Scanning" {
+					res.Events[honeypot.PortEventID] = map[string]interface{}{
+						"port": port_nr,
+					}
+				}
+
+				tokens = append(tokens, res)
+			}
+			idRes[honeypotID] = tokens
+			return nil
+		})
 	}
+	err := wg.Wait()
+	if err != nil {
+		slog.Error("Error getting attacks in 24 hours", "err", err)
+	}
+
 	return idRes
 }
 
@@ -294,8 +313,11 @@ func (p *PostgreSQL) GetAttacksIn24Hours() types.SetResponse {
 func (p *PostgreSQL) GetCountIn24Hours() types.CountIn24HoursStatsResponse {
 	var idRes types.CountIn24HoursStatsResponse = make(map[string][]types.CountIn24HoursStats)
 	honeypotIDs := p.honeypotIds()
+	wg := errgroup.Group{}
+	wg.SetLimit(10)
 	for _, honeypotID := range honeypotIDs {
-		query := `
+		wg.Go(func() error {
+			query := `
 		WITH Hourly_Attacks AS (
 			SELECT
 				DATE_TRUNC('hour', TO_TIMESTAMP(time_of_event)) AS hour,
@@ -326,26 +348,34 @@ func (p *PostgreSQL) GetCountIn24Hours() types.CountIn24HoursStatsResponse {
 		ORDER BY
 			h.hour;
     	`
-		rows, err := p.DB.Query(query, honeypotID)
-		if err != nil {
-			slog.Error("Error querying the database", "err", err)
-		}
-		defer rows.Close()
-		var tokens []types.CountIn24HoursStats
-		for rows.Next() {
-			var hour int
-			var count int
-			err := rows.Scan(&hour, &count)
+			rows, err := p.DB.Query(query, honeypotID)
 			if err != nil {
-				slog.Error("Error scanning the database", "err", err)
+				slog.Error("Error querying the database", "err", err)
+				return err
 			}
-			res := types.CountIn24HoursStats{
-				Hour:  hour,
-				Count: count,
+			defer rows.Close()
+			var tokens []types.CountIn24HoursStats
+			for rows.Next() {
+				var hour int
+				var count int
+				err := rows.Scan(&hour, &count)
+				if err != nil {
+					slog.Error("Error scanning the database", "err", err)
+					return err
+				}
+				res := types.CountIn24HoursStats{
+					Hour:  hour,
+					Count: count,
+				}
+				tokens = append(tokens, res)
 			}
-			tokens = append(tokens, res)
-		}
-		idRes[honeypotID] = tokens
+			idRes[honeypotID] = tokens
+			return nil
+		})
+	}
+	err := wg.Wait()
+	if err != nil {
+		slog.Error("Error getting count in 24 hours", "err", err)
 	}
 	return idRes
 }
@@ -353,8 +383,11 @@ func (p *PostgreSQL) GetCountIn24Hours() types.CountIn24HoursStatsResponse {
 func (p *PostgreSQL) GetCountIn7Days() types.CountIn7DaysStatsResponse {
 	var idRes types.CountIn7DaysStatsResponse = make(map[string][]types.CountIn7DaysStats)
 	honeypotIDs := p.honeypotIds()
+	wg := errgroup.Group{}
+	wg.SetLimit(10)
 	for _, honeypotID := range honeypotIDs {
-		query := `
+		wg.Go(func() error {
+			query := `
 		SELECT TO_CHAR(TO_TIMESTAMP(time_of_event), 'DD/MM') AS date,
 		COUNT(*) AS count
 		FROM attack_log
@@ -363,34 +396,44 @@ func (p *PostgreSQL) GetCountIn7Days() types.CountIn7DaysStatsResponse {
 		GROUP BY TO_CHAR(TO_TIMESTAMP(time_of_event), 'DD/MM')
 		ORDER BY date;
     `
-		rows, err := p.DB.Query(query, honeypotID)
-		if err != nil {
-			slog.Error("Error querying the database", "err", err)
-		}
-		defer rows.Close()
-		var tokens []types.CountIn7DaysStats
-		for rows.Next() {
-			var date string
-			var count int
-			err := rows.Scan(&date, &count)
+			rows, err := p.DB.Query(query, honeypotID)
 			if err != nil {
-				slog.Error("Error scanning the database", "err", err)
+				slog.Error("Error querying the database", "err", err)
 			}
-			res := types.CountIn7DaysStats{
-				Date:  date,
-				Count: count,
+			defer rows.Close()
+			var tokens []types.CountIn7DaysStats
+			for rows.Next() {
+				var date string
+				var count int
+				err := rows.Scan(&date, &count)
+				if err != nil {
+					slog.Error("Error scanning the database", "err", err)
+				}
+				res := types.CountIn7DaysStats{
+					Date:  date,
+					Count: count,
+				}
+				tokens = append(tokens, res)
 			}
-			tokens = append(tokens, res)
-		}
-		idRes[honeypotID] = tokens
+			idRes[honeypotID] = tokens
+			return nil
+		})
+	}
+	err := wg.Wait()
+	if err != nil {
+		slog.Error("Error getting count in 24 hours", "err", err)
 	}
 	return idRes
 }
+
 func (p *PostgreSQL) GetCountIn6Months() types.CountIn6MonthsStatsResponse {
 	var idRes types.CountIn6MonthsStatsResponse = make(map[string][]types.CountIn6MonthsStats)
 	honeypotIDs := p.honeypotIds()
+	wg := errgroup.Group{}
+	wg.SetLimit(10)
 	for _, honeypotID := range honeypotIDs {
-		query := `
+		wg.Go(func() error {
+			query := `
 		SELECT TO_CHAR(TO_TIMESTAMP(time_of_event), 'MM/YYYY') AS month,
 		COUNT(*) AS count
 		FROM attack_log
@@ -399,26 +442,32 @@ func (p *PostgreSQL) GetCountIn6Months() types.CountIn6MonthsStatsResponse {
 		GROUP BY TO_CHAR(TO_TIMESTAMP(time_of_event), 'MM/YYYY')
 		ORDER BY month;
     `
-		rows, err := p.DB.Query(query, honeypotID)
-		if err != nil {
-			slog.Error("Error querying the database", "err", err)
-		}
-		defer rows.Close()
-		var tokens []types.CountIn6MonthsStats
-		for rows.Next() {
-			var month string
-			var count int
-			err := rows.Scan(&month, &count)
+			rows, err := p.DB.Query(query, honeypotID)
 			if err != nil {
-				slog.Error("Error scanning the database", "err", err)
+				slog.Error("Error querying the database", "err", err)
 			}
-			res := types.CountIn6MonthsStats{
-				Month: month,
-				Count: count,
+			defer rows.Close()
+			var tokens []types.CountIn6MonthsStats
+			for rows.Next() {
+				var month string
+				var count int
+				err := rows.Scan(&month, &count)
+				if err != nil {
+					slog.Error("Error scanning the database", "err", err)
+				}
+				res := types.CountIn6MonthsStats{
+					Month: month,
+					Count: count,
+				}
+				tokens = append(tokens, res)
 			}
-			tokens = append(tokens, res)
-		}
-		idRes[honeypotID] = tokens
+			idRes[honeypotID] = tokens
+			return nil
+		})
+	}
+	err := wg.Wait()
+	if err != nil {
+		slog.Error("Error getting count in 24 hours", "err", err)
 	}
 	return idRes
 }
@@ -426,34 +475,43 @@ func (p *PostgreSQL) GetCountIn6Months() types.CountIn6MonthsStatsResponse {
 func (p *PostgreSQL) GetCountryStats() types.CountryStatsResponse {
 	var idRes types.CountryStatsResponse = make(map[string][]types.CountryStats)
 	honeypotIDs := p.honeypotIds()
+	wg := errgroup.Group{}
+	wg.SetLimit(10)
 	for _, honeypotID := range honeypotIDs {
-		query := `
+		wg.Go(func() error {
+			query := `
         SELECT attack_log.country, COUNT(attack_log.country) AS count
         FROM attack_log
         WHERE attack_log.honeypot_id=$1
         GROUP BY attack_log.country
         ORDER BY COUNT(attack_log.country) DESC
     `
-		rows, err := p.DB.Query(query, honeypotID)
-		if err != nil {
-			slog.Error("Error querying the database", "err", err)
-		}
-		defer rows.Close()
-		var tokens []types.CountryStats
-		for rows.Next() {
-			var country string
-			var count int
-			err := rows.Scan(&country, &count)
+			rows, err := p.DB.Query(query, honeypotID)
 			if err != nil {
-				slog.Error("Error scanning the database", "err", err)
+				slog.Error("Error querying the database", "err", err)
 			}
-			res := types.CountryStats{
-				Country: country,
-				Count:   count,
+			defer rows.Close()
+			var tokens []types.CountryStats
+			for rows.Next() {
+				var country string
+				var count int
+				err := rows.Scan(&country, &count)
+				if err != nil {
+					slog.Error("Error scanning the database", "err", err)
+				}
+				res := types.CountryStats{
+					Country: country,
+					Count:   count,
+				}
+				tokens = append(tokens, res)
 			}
-			tokens = append(tokens, res)
-		}
-		idRes[honeypotID] = tokens
+			idRes[honeypotID] = tokens
+			return nil
+		})
+	}
+	err := wg.Wait()
+	if err != nil {
+		slog.Error("Error getting count in 24 hours", "err", err)
 	}
 	return idRes
 }
@@ -461,8 +519,11 @@ func (p *PostgreSQL) GetCountryStats() types.CountryStatsResponse {
 func (p *PostgreSQL) GetIPStats() types.IPStatsResponse {
 	var idRes types.IPStatsResponse = make(map[string][]types.IPStats)
 	honeypotIDs := p.honeypotIds()
+	wg := errgroup.Group{}
+	wg.SetLimit(10)
 	for _, honeypotID := range honeypotIDs {
-		query := `
+		wg.Go(func() error {
+			query := `
 		SELECT attack_log.ip_address, attack_log.country, COUNT(attack_log.ip_address) AS count
 		FROM attack_log
 		WHERE attack_log.honeypot_id=$1
@@ -470,27 +531,33 @@ func (p *PostgreSQL) GetIPStats() types.IPStatsResponse {
 		ORDER BY COUNT(attack_log.ip_address) 
 		DESC;
     `
-		rows, err := p.DB.Query(query, honeypotID)
-		if err != nil {
-			slog.Error("Error querying the database", "err", err)
-		}
-		defer rows.Close()
-		var tokens []types.IPStats
-		for rows.Next() {
-			var ip_address, country string
-			var count int
-			err := rows.Scan(&ip_address, &country, &count)
+			rows, err := p.DB.Query(query, honeypotID)
 			if err != nil {
-				slog.Error("Error scanning the database", "err", err)
+				slog.Error("Error querying the database", "err", err)
 			}
-			res := types.IPStats{
-				IP:      ip_address,
-				Country: country,
-				Count:   count,
+			defer rows.Close()
+			var tokens []types.IPStats
+			for rows.Next() {
+				var ip_address, country string
+				var count int
+				err := rows.Scan(&ip_address, &country, &count)
+				if err != nil {
+					slog.Error("Error scanning the database", "err", err)
+				}
+				res := types.IPStats{
+					IP:      ip_address,
+					Country: country,
+					Count:   count,
+				}
+				tokens = append(tokens, res)
 			}
-			tokens = append(tokens, res)
-		}
-		idRes[honeypotID] = tokens
+			idRes[honeypotID] = tokens
+			return nil
+		})
+	}
+	err := wg.Wait()
+	if err != nil {
+		slog.Error("Error getting count in 24 hours", "err", err)
 	}
 	return idRes
 }
@@ -498,8 +565,11 @@ func (p *PostgreSQL) GetIPStats() types.IPStatsResponse {
 func (p *PostgreSQL) GetUsernameStats() types.UsernameStatsResponse {
 	var idRes types.UsernameStatsResponse = make(map[string][]types.UsernameStats)
 	honeypotIDs := p.honeypotIds()
+	wg := errgroup.Group{}
+	wg.SetLimit(10)
 	for _, honeypotID := range honeypotIDs {
-		query := `
+		wg.Go(func() error {
+			query := `
 		SELECT la.username, COUNT(la.username) AS count
 		FROM login_attempt la
 		JOIN attack_log al ON la.attack_id = al.attack_id
@@ -507,26 +577,32 @@ func (p *PostgreSQL) GetUsernameStats() types.UsernameStatsResponse {
 		GROUP BY la.username
 		ORDER BY COUNT(la.username) DESC;
     `
-		rows, err := p.DB.Query(query, honeypotID)
-		if err != nil {
-			slog.Error("Error querying the database", "err", err)
-		}
-		defer rows.Close()
-		var tokens []types.UsernameStats
-		for rows.Next() {
-			var username string
-			var count int
-			err := rows.Scan(&username, &count)
+			rows, err := p.DB.Query(query, honeypotID)
 			if err != nil {
-				slog.Error("Error scanning the database", "err", err)
+				slog.Error("Error querying the database", "err", err)
 			}
-			res := types.UsernameStats{
-				Username: username,
-				Count:    count,
+			defer rows.Close()
+			var tokens []types.UsernameStats
+			for rows.Next() {
+				var username string
+				var count int
+				err := rows.Scan(&username, &count)
+				if err != nil {
+					slog.Error("Error scanning the database", "err", err)
+				}
+				res := types.UsernameStats{
+					Username: username,
+					Count:    count,
+				}
+				tokens = append(tokens, res)
 			}
-			tokens = append(tokens, res)
-		}
-		idRes[honeypotID] = tokens
+			idRes[honeypotID] = tokens
+			return nil
+		})
+	}
+	err := wg.Wait()
+	if err != nil {
+		slog.Error("Error getting count in 24 hours", "err", err)
 	}
 	return idRes
 }
@@ -534,8 +610,11 @@ func (p *PostgreSQL) GetUsernameStats() types.UsernameStatsResponse {
 func (p *PostgreSQL) GetPasswordStats() types.PasswordStatsResponse {
 	var idRes types.PasswordStatsResponse = make(map[string][]types.PasswordStats)
 	honeypotIDs := p.honeypotIds()
+	wg := errgroup.Group{}
+	wg.SetLimit(10)
 	for _, honeypotID := range honeypotIDs {
-		query := `
+		wg.Go(func() error {
+			query := `
 		SELECT la.password, COUNT(la.password) AS count
 		FROM login_attempt la
 		JOIN attack_log al ON la.attack_id = al.attack_id
@@ -543,26 +622,32 @@ func (p *PostgreSQL) GetPasswordStats() types.PasswordStatsResponse {
 		GROUP BY la.password
 		ORDER BY COUNT(la.password) DESC;
     `
-		rows, err := p.DB.Query(query, honeypotID)
-		if err != nil {
-			slog.Error("Error querying the database", "err", err)
-		}
-		defer rows.Close()
-		var tokens []types.PasswordStats
-		for rows.Next() {
-			var password string
-			var count int
-			err := rows.Scan(&password, &count)
+			rows, err := p.DB.Query(query, honeypotID)
 			if err != nil {
-				slog.Error("Error scanning the database", "err", err)
+				slog.Error("Error querying the database", "err", err)
 			}
-			res := types.PasswordStats{
-				Password: password,
-				Count:    count,
+			defer rows.Close()
+			var tokens []types.PasswordStats
+			for rows.Next() {
+				var password string
+				var count int
+				err := rows.Scan(&password, &count)
+				if err != nil {
+					slog.Error("Error scanning the database", "err", err)
+				}
+				res := types.PasswordStats{
+					Password: password,
+					Count:    count,
+				}
+				tokens = append(tokens, res)
 			}
-			tokens = append(tokens, res)
-		}
-		idRes[honeypotID] = tokens
+			idRes[honeypotID] = tokens
+			return nil
+		})
+	}
+	err := wg.Wait()
+	if err != nil {
+		slog.Error("Error getting count in 24 hours", "err", err)
 	}
 	return idRes
 }
@@ -570,8 +655,11 @@ func (p *PostgreSQL) GetPasswordStats() types.PasswordStatsResponse {
 func (p *PostgreSQL) GetPortStats() types.PortStatsResponse {
 	var idRes types.PortStatsResponse = make(map[string][]types.PortStats)
 	honeypotIDs := p.honeypotIds()
+	wg := errgroup.Group{}
+	wg.SetLimit(10)
 	for _, honeypotID := range honeypotIDs {
-		query := `
+		wg.Go(func() error {
+			query := `
 		SELECT attack_log.port_nr, COUNT(attack_log.port_nr) AS count
 		FROM attack_log
 		WHERE attack_log.honeypot_id=$1
@@ -579,25 +667,31 @@ func (p *PostgreSQL) GetPortStats() types.PortStatsResponse {
 		ORDER BY COUNT(attack_log.port_nr) 
 		DESC ;
     `
-		rows, err := p.DB.Query(query, honeypotID)
-		if err != nil {
-			slog.Error("Error querying the database", "err", err)
-		}
-		defer rows.Close()
-		var tokens []types.PortStats
-		for rows.Next() {
-			var count, port_nr int
-			err := rows.Scan(&port_nr, &count)
+			rows, err := p.DB.Query(query, honeypotID)
 			if err != nil {
-				slog.Error("Error scanning the database", "err", err)
+				slog.Error("Error querying the database", "err", err)
 			}
-			res := types.PortStats{
-				Port:  port_nr,
-				Count: count,
+			defer rows.Close()
+			var tokens []types.PortStats
+			for rows.Next() {
+				var count, port_nr int
+				err := rows.Scan(&port_nr, &count)
+				if err != nil {
+					slog.Error("Error scanning the database", "err", err)
+				}
+				res := types.PortStats{
+					Port:  port_nr,
+					Count: count,
+				}
+				tokens = append(tokens, res)
 			}
-			tokens = append(tokens, res)
-		}
-		idRes[honeypotID] = tokens
+			idRes[honeypotID] = tokens
+			return nil
+		})
+	}
+	err := wg.Wait()
+	if err != nil {
+		slog.Error("Error getting count in 24 hours", "err", err)
 	}
 	return idRes
 }
@@ -605,8 +699,11 @@ func (p *PostgreSQL) GetPortStats() types.PortStatsResponse {
 func (p *PostgreSQL) GetPathStats() types.PathStatsResponse {
 	var idRes types.PathStatsResponse = make(map[string][]types.PathStats)
 	honeypotIDs := p.honeypotIds()
+	wg := errgroup.Group{}
+	wg.SetLimit(10)
 	for _, honeypotID := range honeypotIDs {
-		query := `
+		wg.Go(func() error {
+			query := `
 		SELECT la.path, COUNT(la.path) AS count
 		FROM http_request la
 		JOIN attack_log al ON la.attack_id = al.attack_id
@@ -615,26 +712,32 @@ func (p *PostgreSQL) GetPathStats() types.PathStatsResponse {
 		ORDER BY COUNT(la.path)
 		DESC ;
     `
-		rows, err := p.DB.Query(query, honeypotID)
-		if err != nil {
-			slog.Error("Error querying the database", "err", err)
-		}
-		defer rows.Close()
-		var tokens []types.PathStats
-		for rows.Next() {
-			var path string
-			var count int
-			err := rows.Scan(&path, &count)
+			rows, err := p.DB.Query(query, honeypotID)
 			if err != nil {
-				slog.Error("Error scanning the database", "err", err)
+				slog.Error("Error querying the database", "err", err)
 			}
-			res := types.PathStats{
-				Path:  path,
-				Count: count,
+			defer rows.Close()
+			var tokens []types.PathStats
+			for rows.Next() {
+				var path string
+				var count int
+				err := rows.Scan(&path, &count)
+				if err != nil {
+					slog.Error("Error scanning the database", "err", err)
+				}
+				res := types.PathStats{
+					Path:  path,
+					Count: count,
+				}
+				tokens = append(tokens, res)
 			}
-			tokens = append(tokens, res)
-		}
-		idRes[honeypotID] = tokens
+			idRes[honeypotID] = tokens
+			return nil
+		})
+	}
+	err := wg.Wait()
+	if err != nil {
+		slog.Error("Error getting count in 24 hours", "err", err)
 	}
 	return idRes
 }
