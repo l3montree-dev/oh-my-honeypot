@@ -318,35 +318,35 @@ func (p *PostgreSQL) GetCountIn24Hours() types.CountIn24HoursStatsResponse {
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
-		WITH Hourly_Attacks AS (
+			WITH Hourly_Attacks AS (
+				SELECT
+					DATE_TRUNC('hour', TO_TIMESTAMP(time_of_event) AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin') AS hour,
+					COUNT(*) AS num_attacks
+				FROM attack_log
+				WHERE TO_TIMESTAMP(time_of_event) AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin' >= NOW() AT TIME ZONE 'Europe/Berlin' - INTERVAL '24 hour'
+				AND honeypot_id=$1
+				GROUP BY DATE_TRUNC('hour', TO_TIMESTAMP(time_of_event) AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')
+				ORDER BY hour
+			),
+			Hourly_Sequence AS (
+				SELECT
+					generate_series(
+						DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Berlin' - INTERVAL '24 hour'),
+						DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Berlin'),
+						'1 hour'
+					) AS hour
+			)
 			SELECT
-				DATE_TRUNC('hour', TO_TIMESTAMP(time_of_event)) AS hour,
-				COUNT(*) AS num_attacks
-			FROM attack_log
-			WHERE TO_TIMESTAMP(time_of_event) >= NOW() - INTERVAL '24 hour'
-			AND honeypot_id=$1
-			GROUP BY DATE_TRUNC('hour', TO_TIMESTAMP(time_of_event))
-			ORDER BY hour
-		),
-		Hourly_Sequence AS (
-			SELECT
-				generate_series(
-					DATE_TRUNC('hour', NOW() - INTERVAL '24 hour'),
-					DATE_TRUNC('hour', NOW()),
-					'1 hour'
-				) AS hour
-		)
-		SELECT
-			TO_CHAR(h.hour, 'HH24') AS hour,
-			SUM(COALESCE(a.num_attacks, 0)) OVER (ORDER BY h.hour ASC) AS cumulative_attacks
-		FROM
-			Hourly_Sequence h
-		LEFT JOIN
-			Hourly_Attacks a
-		ON
-			h.hour = a.hour
-		ORDER BY
-			h.hour;
+				TO_CHAR(h.hour, 'HH24') AS hour,
+				SUM(COALESCE(a.num_attacks, 0)) OVER (ORDER BY h.hour ASC) AS cumulative_attacks
+			FROM
+				Hourly_Sequence h
+			LEFT JOIN
+				Hourly_Attacks a
+			ON
+				h.hour = a.hour
+			ORDER BY
+				h.hour;
     	`
 			rows, err := p.DB.Query(query, honeypotID)
 			if err != nil {
