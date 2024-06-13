@@ -25,6 +25,9 @@ type Set struct {
 	Events map[string]map[string]interface{} `json:"events"`
 }
 
+// key is honeypot id
+type SetResponse = map[string][]Set
+
 func Marshal(t Set) ([]byte, error) {
 	return json.Marshal(t)
 }
