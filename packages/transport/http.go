@@ -12,16 +12,16 @@ import (
 )
 
 type getter interface {
-	GetAttacksIn24Hours() []types.Set
-	GetIPStats() []types.IPStats
-	GetCountryStats() []types.CountryStats
-	GetPortStats() []types.PortStats
-	GetUsernameStats() []types.UsernameStats
-	GetPasswordStats() []types.PasswordStats
-	GetPathStats() []types.PathStats
-	GetCountIn24Hours() []types.CountIn24HoursStats
-	GetCountIn7Days() []types.CountIn7DaysStats
-	GetCountIn6Months() []types.CountIn6MonthsStats
+	GetAttacksIn24Hours() types.SetResponse
+	GetIPStats() types.IPStatsResponse
+	GetCountryStats() types.CountryStatsResponse
+	GetPortStats() types.PortStatsResponse
+	GetUsernameStats() types.UsernameStatsResponse
+	GetPasswordStats() types.PasswordStatsResponse
+	GetPathStats() types.PathStatsResponse
+	GetCountIn24Hours() types.CountIn24HoursStatsResponse
+	GetCountIn7Days() types.CountIn7DaysStatsResponse
+	GetCountIn6Months() types.CountIn6MonthsStatsResponse
 }
 
 type HTTPConfig struct {
