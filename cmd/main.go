@@ -103,7 +103,12 @@ func main() {
 		return input, nil
 	})
 
-	pipeline.Broadcast(setChannel, httpTransport.RealtimeChan, dbChan)
+	// save everything, which is send over the setChannel inside the database
+	pipeline.Pipe(setChannel, dbChan)
+	dbSubscription := postgresqlDB.SubscribeToDBChanges()
+
+	// broadcast the events to the http transport
+	pipeline.Pipe(dbSubscription, httpTransport.RealtimeChan)
 	forever := make(chan bool)
 	<-forever
 }
