@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -19,6 +20,94 @@ import (
 type PostgreSQL struct {
 	DB          *pgxpool.Pool
 	honeypotIDs []string
+}
+
+type attackNotification struct {
+	AttackID    string `json:"attack_id"`
+	HoneypotID  string `json:"honeypot_id"`
+	TimeOfEvent int    `json:"time_of_event"`
+	PortNr      int    `json:"port_nr"`
+	IPAddress   string `json:"ip_address"`
+	Country     string `json:"country"`
+	AttackType  string `json:"attack_type"`
+}
+
+var attackTypeToID = map[string]string{
+	"Login Attempt": honeypot.LoginEventID,
+	"HTTP Request":  honeypot.HTTPEventID,
+	"Port Scanning": honeypot.PortEventID,
+}
+
+// uses postgresql listener to listen to the database
+func (p *PostgreSQL) SubscribeToDBChanges() <-chan types.Set {
+	_, err := p.DB.Exec(context.Background(), `CREATE OR REPLACE FUNCTION fn_attack() RETURNS TRIGGER AS 
+$$
+BEGIN
+    PERFORM pg_notify(
+        'honeypot',
+        to_json(NEW)::TEXT
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER new_attacks
+AFTER INSERT ON attack_log
+FOR EACH ROW EXECUTE PROCEDURE fn_attack();`)
+	if err != nil {
+		slog.Error("Error creating the trigger", "err", err)
+		panic(err)
+	}
+
+	conn, err := p.DB.Acquire(context.Background())
+	if err != nil {
+		slog.Error("Error acquiring the connection", "err", err)
+		panic(err)
+	}
+
+	_, err = conn.Exec(context.Background(), "LISTEN honeypot")
+
+	if err != nil {
+		slog.Error("Error listening to the database", "err", err)
+		panic(err)
+	}
+
+	output := make(chan types.Set)
+	go func() {
+		for {
+			notification, err := conn.Conn().WaitForNotification(context.Background())
+			if err != nil {
+				slog.Error("Error waiting for notification", "err", err)
+				continue
+			}
+			var attack attackNotification
+
+			err = json.Unmarshal([]byte(notification.Payload), &attack)
+			if err != nil {
+				slog.Error("Error unmarshalling the notification", "err", err)
+				continue
+			}
+
+			select {
+			case output <- types.Set{
+				SUB:     attack.IPAddress,
+				COUNTRY: attack.Country,
+				ISS:     "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
+				IAT:     int64(attack.TimeOfEvent),
+				JTI:     attack.AttackID,
+				Events: map[string]map[string]any{
+					attackTypeToID[attack.AttackType]: {
+						"port": attack.PortNr,
+					}},
+				HONEYPOT: attack.HoneypotID,
+			}:
+			default:
+				slog.Warn("Could not send the notification")
+			}
+		}
+	}()
+
+	return output
 }
 
 func (p *PostgreSQL) Listen() chan<- types.Set {
@@ -360,12 +449,13 @@ func (p *PostgreSQL) GetLatestAttacks() types.SetResponse {
 					slog.Error("Error scanning the database", "err", err)
 				}
 				res := types.Set{
-					SUB:     ip_address,
-					COUNTRY: country,
-					ISS:     "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
-					IAT:     int64(time_of_event),
-					JTI:     attack_id,
-					Events:  make(map[string]map[string]interface{}),
+					SUB:      ip_address,
+					COUNTRY:  country,
+					ISS:      "github.com/l3montree-dev/oh-my-honeypot/honeypot/",
+					IAT:      int64(time_of_event),
+					JTI:      attack_id,
+					HONEYPOT: honeypot_id,
+					Events:   make(map[string]map[string]interface{}),
 				}
 				if attack_type == "Login Attempt" {
 					res.Events[honeypot.LoginEventID] = map[string]interface{}{

@@ -52,6 +52,19 @@ func Broadcast[T any](input <-chan T, outputs ...chan<- T) {
 	}()
 }
 
+func Pipe[T any](input <-chan T, output chan<- T) {
+	go func() {
+		for msg := range input {
+			select {
+			case output <- msg:
+			default:
+				// just swallow the error
+				slog.Warn("could not write to channel")
+			}
+		}
+	}()
+}
+
 func Map[T any, R any](input <-chan T, transformFn func(input T) (R, error)) <-chan R {
 	output := make(chan R)
 	go func() {
