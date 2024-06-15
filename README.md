@@ -69,7 +69,7 @@ psql -h localhost -p 5432 -U admin -V 'sslmode=disable'
 | Path                    | Description                                                                                              |
 | ----------------------- | -------------------------------------------------------------------------------------------------------- |
 | /realtime               | Provides real-time data on ongoing attacks and activities being recorded using Server-Side Events (SSE). |
-| /latest-attacks     | Provides latest attacks of each honeypot                                          |
+| /latest-attacks         | Provides latest attacks of each honeypot                                                                 |
 | /stats/count-in-24hours | Provides the number of attacks in the last 24 hours measured per hour                                    |
 | /stats/count-in-7days   | Provides the number of attacks in the last 7 days measured per day                                       |
 | /stats/count-in-6months | Provides the number of attacks in the last 6 months measured per month                                   |
