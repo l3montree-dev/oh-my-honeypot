@@ -127,5 +127,10 @@ ssh:
     ServerVersion: "SSH-2.0-OpenSSH_5.8p2"
 ```
 ### DB-IP
+
 The honeypot uses the [DB-IP](https://db-ip.com/) service to determine the geolocation of the IP addresses that interact with it. The db-ip lite database is included in the project and needs to be updated regularly. The link to download the latest version can be found [here](https://db-ip.com/db/download/ip-to-country-lite). The file needs to be extracted and placed in the `root` folder. The file name should be `dbip-country.csv`.
 <a href='https://db-ip.com'>IP Geolocation by DB-IP</a>
+
+## Credits
+
+This project is based on the [Neuland@Homeland GmbH 'Oh-my-honeypot'](https://gitlab.com/neuland-at-homeland/oh-my-honeypot).

@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"strconv"
 
 	"github.com/joho/godotenv"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/dbip"
@@ -36,20 +35,15 @@ func main() {
 	if err != nil {
 		slog.Warn("Error loading .env file: %s", err)
 	}
-	// Get the port from the .env file as integer
-	portInt, err := strconv.Atoi(os.Getenv("POSTGRES_PORT"))
-	if err != nil {
-		panic(err)
-	}
-	postgresqlDB := store.PostgreSQL{
-		Host: string(os.Getenv("POSTGRES_HOST")),
-		Port: portInt,
-		User: string(os.Getenv("POSTGRES_USER")),
-		// checkov:skip=CKV_SECRET_6 // False Positive
-		Password: string(os.Getenv("POSTGRES_PASSWORD")),
-		DBName:   string(os.Getenv("POSTGRES_DB")),
-	}
-	err = postgresqlDB.Start()
+
+	postgresqlDB := store.PostgreSQL{}
+	err = postgresqlDB.Start(
+		os.Getenv("POSTGRES_HOST"),
+		os.Getenv("POSTGRES_PORT"),
+		os.Getenv("POSTGRES_USER"),
+		os.Getenv("POSTGRES_PASSWORD"),
+		os.Getenv("POSTGRES_DB"),
+	)
 	if err != nil {
 		panic(err)
 	}

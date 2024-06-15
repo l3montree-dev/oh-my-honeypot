@@ -8,6 +8,10 @@ type CountIn24HoursStats struct {
 	Count int `json:"count"`
 }
 
+type CountIn24HoursByCountry = map[int][]CountryStats
+
+type CountIn24HoursByCountryResponse = map[string]CountIn24HoursByCountry
+
 type CountIn7DaysStatsResponse = map[string][]CountIn7DaysStats
 type CountIn7DaysStats struct {
 	Date  string `json:"date"`

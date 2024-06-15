@@ -12,7 +12,7 @@ import (
 )
 
 type getter interface {
-	GetAttacksIn24Hours() types.SetResponse
+	GetLatestAttacks() types.SetResponse
 	GetIPStats() types.IPStatsResponse
 	GetCountryStats() types.CountryStatsResponse
 	GetPortStats() types.PortStatsResponse
@@ -22,6 +22,7 @@ type getter interface {
 	GetCountIn24Hours() types.CountIn24HoursStatsResponse
 	GetCountIn7Days() types.CountIn7DaysStatsResponse
 	GetCountIn6Months() types.CountIn6MonthsStatsResponse
+	GetCountIn24HoursByCountry() types.CountIn24HoursByCountryResponse
 }
 
 type HTTPConfig struct {
@@ -65,7 +66,8 @@ func (h *httpTransport) Listen() {
 	// create a new http server
 	mux := http.NewServeMux()
 	mux.Handle("GET /realtime", h.handleSSE())
-	mux.Handle("GET /attacks-in-24hours", h.handleAttacksIn24Hours())
+	mux.Handle("GET /latest-attacks", h.handleLatestAttacks())
+	mux.Handle("GET /stats/count-in-24hours-by-country", h.handleCountIn24HoursByCountry())
 	mux.Handle("GET /stats/count-in-24hours", h.handleCountIn24Hours())
 	mux.Handle("GET /stats/count-in-7days", h.handleCountIn7Days())
 	mux.Handle("GET /stats/count-in-6months", h.handleCountIn6Monts())
@@ -79,6 +81,24 @@ func (h *httpTransport) Listen() {
 
 	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux) // nolint
 	slog.Info("HTTP transport listening", "port", h.port)
+}
+
+func (h *httpTransport) handleCountIn24HoursByCountry() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		msgs := h.getter.GetCountIn24HoursByCountry()
+		arr, err := json.Marshal(msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		setDefaultHeaders(w)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(arr) // Check the error return value of w.Write
+		if err != nil {
+			// Handle the error appropriately
+			return
+		}
+	}
 }
 
 // HandleSSE handles the server-sent events for real time attack data
@@ -121,10 +141,10 @@ func (h *httpTransport) handleSSE() http.HandlerFunc {
 	}
 }
 
-// handleAttacksIn24Hours handles the request for attacks in the last 24 hours
-func (h *httpTransport) handleAttacksIn24Hours() http.HandlerFunc {
+// handleLatestAttacks handles the request for attacks in the last 24 hours
+func (h *httpTransport) handleLatestAttacks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		msgs := h.getter.GetAttacksIn24Hours()
+		msgs := h.getter.GetLatestAttacks()
 		arr, err := json.Marshal(msgs)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
