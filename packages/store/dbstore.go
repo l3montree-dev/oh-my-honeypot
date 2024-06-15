@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/l3montree-dev/oh-my-honeypot/packages/honeypot"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
@@ -246,8 +247,8 @@ func (p *PostgreSQL) GetCountIn24HoursByCountry() types.CountIn24HoursByCountryR
 	honeypotIDs := p.honeypotIds()
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
+	mut := sync.Mutex{}
 	for _, honeypotID := range honeypotIDs {
-		fmt.Println(honeypotID)
 		wg.Go(func() error {
 			query := `
        SELECT attack_log.country, 
@@ -285,7 +286,9 @@ GROUP BY attack_log.country,
 					tokens[hour] = append(tokens[hour], res)
 				}
 			}
+			mut.Lock()
 			idRes[honeypotID] = tokens
+			mut.Unlock()
 			return nil
 		})
 	}
@@ -304,6 +307,7 @@ func (p *PostgreSQL) GetLatestAttacks() types.SetResponse {
 
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
+	mut := sync.Mutex{}
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -351,7 +355,9 @@ func (p *PostgreSQL) GetLatestAttacks() types.SetResponse {
 
 				tokens = append(tokens, res)
 			}
+			mut.Lock()
 			idRes[honeypotID] = tokens
+			mut.Unlock()
 			return nil
 		})
 	}
@@ -369,6 +375,7 @@ func (p *PostgreSQL) GetCountIn24Hours() types.CountIn24HoursStatsResponse {
 	honeypotIDs := p.honeypotIds()
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
+	mut := sync.Mutex{}
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -401,7 +408,9 @@ GROUP BY EXTRACT(HOUR FROM (TO_TIMESTAMP(time_of_event) AT TIME ZONE 'UTC' AT TI
 				}
 				tokens = append(tokens, res)
 			}
+			mut.Lock()
 			idRes[honeypotID] = tokens
+			mut.Unlock()
 			return nil
 		})
 	}
@@ -417,6 +426,7 @@ func (p *PostgreSQL) GetCountIn7Days() types.CountIn7DaysStatsResponse {
 	honeypotIDs := p.honeypotIds()
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
+	mut := sync.Mutex{}
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -447,7 +457,9 @@ func (p *PostgreSQL) GetCountIn7Days() types.CountIn7DaysStatsResponse {
 				}
 				tokens = append(tokens, res)
 			}
+			mut.Lock()
 			idRes[honeypotID] = tokens
+			mut.Unlock()
 			return nil
 		})
 	}
@@ -463,6 +475,7 @@ func (p *PostgreSQL) GetCountIn6Months() types.CountIn6MonthsStatsResponse {
 	honeypotIDs := p.honeypotIds()
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
+	mut := sync.Mutex{}
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -493,7 +506,9 @@ func (p *PostgreSQL) GetCountIn6Months() types.CountIn6MonthsStatsResponse {
 				}
 				tokens = append(tokens, res)
 			}
+			mut.Lock()
 			idRes[honeypotID] = tokens
+			mut.Unlock()
 			return nil
 		})
 	}
@@ -509,6 +524,7 @@ func (p *PostgreSQL) GetCountryStats() types.CountryStatsResponse {
 	honeypotIDs := p.honeypotIds()
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
+	mut := sync.Mutex{}
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -537,7 +553,9 @@ func (p *PostgreSQL) GetCountryStats() types.CountryStatsResponse {
 				}
 				tokens = append(tokens, res)
 			}
+			mut.Lock()
 			idRes[honeypotID] = tokens
+			mut.Unlock()
 			return nil
 		})
 	}
@@ -553,6 +571,7 @@ func (p *PostgreSQL) GetIPStats() types.IPStatsResponse {
 	honeypotIDs := p.honeypotIds()
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
+	mut := sync.Mutex{}
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -583,7 +602,9 @@ func (p *PostgreSQL) GetIPStats() types.IPStatsResponse {
 				}
 				tokens = append(tokens, res)
 			}
+			mut.Lock()
 			idRes[honeypotID] = tokens
+			mut.Unlock()
 			return nil
 		})
 	}
@@ -599,6 +620,7 @@ func (p *PostgreSQL) GetUsernameStats() types.UsernameStatsResponse {
 	honeypotIDs := p.honeypotIds()
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
+	mut := sync.Mutex{}
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -628,7 +650,9 @@ func (p *PostgreSQL) GetUsernameStats() types.UsernameStatsResponse {
 				}
 				tokens = append(tokens, res)
 			}
+			mut.Lock()
 			idRes[honeypotID] = tokens
+			mut.Unlock()
 			return nil
 		})
 	}
@@ -644,6 +668,7 @@ func (p *PostgreSQL) GetPasswordStats() types.PasswordStatsResponse {
 	honeypotIDs := p.honeypotIds()
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
+	mut := sync.Mutex{}
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -673,7 +698,9 @@ func (p *PostgreSQL) GetPasswordStats() types.PasswordStatsResponse {
 				}
 				tokens = append(tokens, res)
 			}
+			mut.Lock()
 			idRes[honeypotID] = tokens
+			mut.Unlock()
 			return nil
 		})
 	}
@@ -689,6 +716,7 @@ func (p *PostgreSQL) GetPortStats() types.PortStatsResponse {
 	honeypotIDs := p.honeypotIds()
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
+	mut := sync.Mutex{}
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -717,7 +745,9 @@ func (p *PostgreSQL) GetPortStats() types.PortStatsResponse {
 				}
 				tokens = append(tokens, res)
 			}
+			mut.Lock()
 			idRes[honeypotID] = tokens
+			mut.Unlock()
 			return nil
 		})
 	}
@@ -733,6 +763,7 @@ func (p *PostgreSQL) GetPathStats() types.PathStatsResponse {
 	honeypotIDs := p.honeypotIds()
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
+	mut := sync.Mutex{}
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -763,7 +794,9 @@ func (p *PostgreSQL) GetPathStats() types.PathStatsResponse {
 				}
 				tokens = append(tokens, res)
 			}
+			mut.Lock()
 			idRes[honeypotID] = tokens
+			mut.Unlock()
 			return nil
 		})
 	}
