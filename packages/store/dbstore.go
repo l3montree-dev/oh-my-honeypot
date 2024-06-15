@@ -1,13 +1,15 @@
 package store
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/honeypot"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	_ "github.com/lib/pq"
@@ -15,12 +17,7 @@ import (
 )
 
 type PostgreSQL struct {
-	Host        string
-	Port        int
-	User        string
-	Password    string
-	DBName      string
-	DB          *sql.DB
+	DB          *pgxpool.Pool
 	honeypotIDs []string
 }
 
@@ -87,18 +84,23 @@ func (p *PostgreSQL) Listen() chan<- types.Set {
 }
 
 // Insert the attack into the database and sanitize the input by using prepared statements
-func (p *PostgreSQL) attackInsert(attackID string, honeypot_id string, time int, port int, ip string, country string, attackType string) {
-	_, err := p.DB.Exec(`
+func (p *PostgreSQL) attackInsert(attackID string, honeypot_id string, t int, port int, ip string, country string, attackType string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := p.DB.Exec(ctx, `
 	INSERT INTO attack_log (Attack_id,Honeypot_id, Time_Of_Event,Port_Nr,IP_Address,Country,Attack_Type)
 	VALUES ($1, $2, $3, $4,$5, $6, $7);
-	`, attackID, honeypot_id, time, port, ip, country, attackType)
+	`, attackID, honeypot_id, t, port, ip, country, attackType)
 	if err != nil {
 		slog.Error("Error inserting into the database attack_log", "err", err)
 	}
 }
 
 func (p *PostgreSQL) loginAttemptInsert(attackID string, service string, username string, password string) {
-	_, err := p.DB.Exec(`
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := p.DB.Exec(ctx, `
 	INSERT INTO login_attempt (Attack_ID,service,Username,Password)
 	VALUES ($1, $2, $3,$4)
 	`, attackID, service, username, password)
@@ -108,7 +110,9 @@ func (p *PostgreSQL) loginAttemptInsert(attackID string, service string, usernam
 }
 
 func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acceptLanguage string, useragent []string) {
-	_, err := p.DB.Exec(`
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := p.DB.Exec(ctx, `
 	INSERT INTO http_request (Attack_ID,method,path,accept_language,system,rendering_engine,platform)
 	VALUES ($1, $2, $3, $4, $5, $6,$7)
 	`, attackID, method, path, acceptLanguage, useragent[0], useragent[1], useragent[2])
@@ -118,7 +122,9 @@ func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acc
 }
 
 func (p *PostgreSQL) bodyInsert(attackID string, contentType string, payloadSize string) {
-	_, err := p.DB.Exec(`
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := p.DB.Exec(ctx, `
 	INSERT INTO http_body (Attack_ID,content_type,payload_size)
 	VALUES ($1,$2,$3)
 	`, attackID, contentType, payloadSize)
@@ -128,7 +134,9 @@ func (p *PostgreSQL) bodyInsert(attackID string, contentType string, payloadSize
 }
 
 func (p *PostgreSQL) spamInsert(attackID string, name string, email string) {
-	_, err := p.DB.Exec(`
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := p.DB.Exec(ctx, `
 	INSERT INTO http_spam (Attack_ID,name,email)
 	VALUES ($1,$2,$3)
 	`, attackID, name, email)
@@ -138,21 +146,35 @@ func (p *PostgreSQL) spamInsert(attackID string, name string, email string) {
 }
 
 // Start initializes the PostgreSQL database connection.
-func (p *PostgreSQL) Start() error {
-	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		p.Host, p.Port, p.User, p.Password, p.DBName)
+func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname)
 
-	// Open a connection to the PostgreSQL database
-	db, err := sql.Open("postgres", connStr)
+	dbConfig, err := pgxpool.ParseConfig(connStr)
+	if err != nil {
+		slog.Error("Failed to create a config", "err", err)
+		return err
+	}
+
+	dbConfig.MaxConns = int32(10)
+	dbConfig.MinConns = int32(0)
+	dbConfig.MaxConnLifetime = time.Hour
+	dbConfig.MaxConnIdleTime = time.Minute * 30
+	dbConfig.HealthCheckPeriod = time.Minute
+	dbConfig.ConnConfig.ConnectTimeout = time.Second * 5
+
+	connPool, err := pgxpool.NewWithConfig(context.Background(), dbConfig)
+
 	if err != nil {
 		slog.Error("Error opening the database connection", "err", err)
 		return err
 	}
 	// Set the database connection in the postgreSQL struct
-	p.DB = db
-
+	p.DB = connPool
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	//Create the tables if they do not exist
-	_, err = p.DB.Exec(`
+	_, err = connPool.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS attack_log (
 		Attack_ID TEXT PRIMARY KEY,
 		Honeypot_ID TEXT,
@@ -165,7 +187,7 @@ func (p *PostgreSQL) Start() error {
 	if err != nil {
 		slog.Error("Error creating table attack_log", "err", err)
 	}
-	_, err = p.DB.Exec(`
+	_, err = p.DB.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS login_attempt (
 		Attack_ID TEXT PRIMARY KEY, 
 		Service TEXT, Username TEXT, 
@@ -175,7 +197,7 @@ func (p *PostgreSQL) Start() error {
 	if err != nil {
 		slog.Error("Error creating table login_attempt", "err", err)
 	}
-	_, err = p.DB.Exec(`
+	_, err = p.DB.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS http_request (
 		Attack_ID TEXT PRIMARY KEY, 
 		method TEXT, 
@@ -189,7 +211,7 @@ func (p *PostgreSQL) Start() error {
 	if err != nil {
 		slog.Error("Error creating table http_request", "err", err)
 	}
-	_, err = p.DB.Exec(`
+	_, err = p.DB.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS http_body (
 		Attack_ID TEXT PRIMARY KEY, 
 		content_type TEXT, 
@@ -198,7 +220,7 @@ func (p *PostgreSQL) Start() error {
 	if err != nil {
 		slog.Error("Error creating table http_body", "err", err)
 	}
-	_, err = p.DB.Exec(`
+	_, err = p.DB.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS http_spam (
 		Attack_ID TEXT PRIMARY KEY, 
 		name TEXT, 
@@ -208,7 +230,7 @@ func (p *PostgreSQL) Start() error {
 	if err != nil {
 		slog.Error("Error creating table http_spam", "err", err)
 	}
-	_, err = p.DB.Exec(`
+	_, err = p.DB.Exec(ctx, `
 	CREATE INDEX attacklog_timestamp_hpid
 	ON attack_log(honeypot_id, TO_TIMESTAMP(time_of_event));`)
 	if err != nil {
@@ -223,7 +245,7 @@ func (p *PostgreSQL) Start() error {
 func (p *PostgreSQL) Close() error {
 	// Close the database connection
 	if p.DB != nil {
-		return p.DB.Close()
+		p.DB.Close()
 	}
 	return nil
 }
@@ -248,6 +270,9 @@ func (p *PostgreSQL) GetCountIn24HoursByCountry() types.CountIn24HoursByCountryR
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -260,7 +285,7 @@ WHERE attack_log.honeypot_id = $1
 GROUP BY attack_log.country,
          EXTRACT(HOUR FROM (TO_TIMESTAMP(time_of_event) AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin'))
     `
-			rows, err := p.DB.Query(query, honeypotID)
+			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
 				slog.Error("Error querying the database", "err", err)
 				return err
@@ -308,6 +333,9 @@ func (p *PostgreSQL) GetLatestAttacks() types.SetResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -315,7 +343,7 @@ func (p *PostgreSQL) GetLatestAttacks() types.SetResponse {
 				WHERE attack_log.honeypot_id=$1
 				ORDER BY time_of_event DESC
 				LIMIT 20;`
-			rows, err := p.DB.Query(query, honeypotID)
+			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
 				slog.Error("Error querying the database", "err", err)
 				return err
@@ -376,6 +404,8 @@ func (p *PostgreSQL) GetCountIn24Hours() types.CountIn24HoursStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -387,7 +417,7 @@ WHERE attack_log.honeypot_id = $1
 GROUP BY EXTRACT(HOUR FROM (TO_TIMESTAMP(time_of_event) AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin'))
 
     	`
-			rows, err := p.DB.Query(query, honeypotID)
+			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
 				slog.Error("Error querying the database", "err", err)
 				return err
@@ -427,6 +457,8 @@ func (p *PostgreSQL) GetCountIn7Days() types.CountIn7DaysStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -438,7 +470,7 @@ func (p *PostgreSQL) GetCountIn7Days() types.CountIn7DaysStatsResponse {
 		GROUP BY TO_CHAR(TO_TIMESTAMP(time_of_event), 'DD/MM')
 		ORDER BY date;
     `
-			rows, err := p.DB.Query(query, honeypotID)
+			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
 				slog.Error("Error querying the database", "err", err)
 			}
@@ -476,6 +508,8 @@ func (p *PostgreSQL) GetCountIn6Months() types.CountIn6MonthsStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -487,7 +521,7 @@ func (p *PostgreSQL) GetCountIn6Months() types.CountIn6MonthsStatsResponse {
 		GROUP BY TO_CHAR(TO_TIMESTAMP(time_of_event), 'MM/YYYY')
 		ORDER BY month;
     `
-			rows, err := p.DB.Query(query, honeypotID)
+			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
 				slog.Error("Error querying the database", "err", err)
 			}
@@ -525,6 +559,8 @@ func (p *PostgreSQL) GetCountryStats() types.CountryStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -534,7 +570,7 @@ func (p *PostgreSQL) GetCountryStats() types.CountryStatsResponse {
         GROUP BY attack_log.country
         ORDER BY COUNT(attack_log.country) DESC
     `
-			rows, err := p.DB.Query(query, honeypotID)
+			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
 				slog.Error("Error querying the database", "err", err)
 			}
@@ -572,6 +608,8 @@ func (p *PostgreSQL) GetIPStats() types.IPStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -582,7 +620,7 @@ func (p *PostgreSQL) GetIPStats() types.IPStatsResponse {
 		ORDER BY COUNT(attack_log.ip_address) 
 		DESC;
     `
-			rows, err := p.DB.Query(query, honeypotID)
+			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
 				slog.Error("Error querying the database", "err", err)
 			}
@@ -621,6 +659,8 @@ func (p *PostgreSQL) GetUsernameStats() types.UsernameStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -631,7 +671,7 @@ func (p *PostgreSQL) GetUsernameStats() types.UsernameStatsResponse {
 		GROUP BY la.username
 		ORDER BY COUNT(la.username) DESC;
     `
-			rows, err := p.DB.Query(query, honeypotID)
+			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
 				slog.Error("Error querying the database", "err", err)
 			}
@@ -669,6 +709,8 @@ func (p *PostgreSQL) GetPasswordStats() types.PasswordStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -679,7 +721,7 @@ func (p *PostgreSQL) GetPasswordStats() types.PasswordStatsResponse {
 		GROUP BY la.password
 		ORDER BY COUNT(la.password) DESC;
     `
-			rows, err := p.DB.Query(query, honeypotID)
+			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
 				slog.Error("Error querying the database", "err", err)
 			}
@@ -717,6 +759,8 @@ func (p *PostgreSQL) GetPortStats() types.PortStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -727,7 +771,7 @@ func (p *PostgreSQL) GetPortStats() types.PortStatsResponse {
 		ORDER BY COUNT(attack_log.port_nr) 
 		DESC ;
     `
-			rows, err := p.DB.Query(query, honeypotID)
+			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
 				slog.Error("Error querying the database", "err", err)
 			}
@@ -764,6 +808,8 @@ func (p *PostgreSQL) GetPathStats() types.PathStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
 			query := `
@@ -775,7 +821,7 @@ func (p *PostgreSQL) GetPathStats() types.PathStatsResponse {
 		ORDER BY COUNT(la.path)
 		DESC ;
     `
-			rows, err := p.DB.Query(query, honeypotID)
+			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
 				slog.Error("Error querying the database", "err", err)
 			}
@@ -819,7 +865,11 @@ func (p *PostgreSQL) honeypotIds() []string {
 }
 
 func (p *PostgreSQL) getHoneypotIDs() ([]string, error) {
-	rows, err := p.DB.Query(`
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	rows, err := p.DB.Query(
+		ctx,
+		`
 		SELECT DISTINCT honeypot_id
 		FROM attack_log;
 	`)
