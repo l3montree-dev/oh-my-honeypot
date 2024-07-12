@@ -708,7 +708,7 @@ func (p *PostgreSQL) GetIPStats() types.IPStatsResponse {
 		WHERE attack_log.honeypot_id=$1
 		GROUP BY attack_log.ip_address, attack_log.country
 		ORDER BY COUNT(attack_log.ip_address) 
-		DESC;
+		DESC LIMIT 30;
     `
 			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
@@ -759,7 +759,7 @@ func (p *PostgreSQL) GetUsernameStats() types.UsernameStatsResponse {
 		JOIN attack_log al ON la.attack_id = al.attack_id
 		WHERE al.honeypot_id = $1
 		GROUP BY la.username
-		ORDER BY COUNT(la.username) DESC;
+		ORDER BY COUNT(la.username) DESC LIMIT 30;
     `
 			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
@@ -809,7 +809,7 @@ func (p *PostgreSQL) GetPasswordStats() types.PasswordStatsResponse {
 		JOIN attack_log al ON la.attack_id = al.attack_id
 		WHERE al.honeypot_id = $1
 		GROUP BY la.password
-		ORDER BY COUNT(la.password) DESC;
+		ORDER BY COUNT(la.password) DESC LIMIT 30;
     `
 			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
