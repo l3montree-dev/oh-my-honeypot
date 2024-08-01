@@ -5,6 +5,7 @@ http:
   env:
     SSH_USER: rinsalussh
     SSH_PASSWORD: 7ebo0ERCCwnISSH
+    DB_HOST: localhost
     DB_USER: ensayouria
     DB_NAME: bankamemdb
     DB_PASSWORD: aYCV6umBuDNHUDB
