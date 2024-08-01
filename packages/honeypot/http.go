@@ -31,8 +31,7 @@ type HTTPConfig struct {
 func (h *httpHoneypot) Start() error {
 	mux := http.NewServeMux()
 	//FileServer to serve static files of hidden ontact form
-	fileServer := http.FileServer(http.Dir("./public"))
-	mux.Handle("/contact-us/", http.StripPrefix("/contact-us/", fileServer))
+
 	mux.HandleFunc("/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
 		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
@@ -63,7 +62,7 @@ func (h *httpHoneypot) Start() error {
 		for key, value := range viper.GetStringMap("http.headers") {
 			w.Header().Set(key, value.(string))
 		}
-		fmt.Fprintf(w, "404 site not found")
+		fmt.Fprint(w, "Hello, World!")
 	})
 
 	mux.HandleFunc("/.env", func(w http.ResponseWriter, r *http.Request) {
@@ -112,12 +111,18 @@ func (h *httpHoneypot) Start() error {
 		fmt.Fprint(w, envString)
 	})
 
+	indexFileserver := http.FileServer(http.Dir("./public/home"))
+	loginFileserver := http.FileServer(http.Dir("./public/login"))
+	mux.Handle("/index.php/", http.StripPrefix("/index.php/", indexFileserver))
+	mux.Handle("/login.php/", http.StripPrefix("/login.php/", loginFileserver))
+
 	// Handle the form submission
-	mux.HandleFunc("/contact-us/submit", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/failed-login", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			return
 		}
+
 		err := r.ParseForm()
 		if err != nil {
 			http.Error(w, "Error parsing form", http.StatusBadRequest)
@@ -127,9 +132,9 @@ func (h *httpHoneypot) Start() error {
 		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
 		sub, _ := utils.NetAddrToIpStr(remoteAddr)
 		contentType := r.Header.Get("Content-Type")
-		name := r.FormValue("First Name") + " " + r.FormValue("Last Name")
-		email := r.FormValue("E-Mail")
-		body := name + "\n" + email + "\n" + r.FormValue("Message")
+		username := r.FormValue("username")
+		password := r.FormValue("password")
+		body := username + "\n" + password + "\n"
 		h.setChan <- types.Set{
 			SUB: sub,
 			ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
@@ -142,15 +147,18 @@ func (h *httpHoneypot) Start() error {
 					"accept-lang":  r.Header.Get("Accept-Language"),
 					"user-agent":   useragent,
 					"content-type": contentType,
+					"path":         r.URL.Path,
 					"body":         body,
 					"bodysize":     len(body),
-					"path":         r.URL.Path,
-					"name":         name,
-					"e-mail":       email,
-					"attack-type":  "Spam",
+					"username":     username,
+					"password":     password,
+					"attack-type":  "injection",
 				},
 			},
 		}
+
+		fmt.Fprint(w, "Login failed: Invalid credentials")
+
 	})
 
 	// Set the headers to make the honeypot look like an vulnerable server
