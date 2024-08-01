@@ -2,6 +2,7 @@ package honeypot
 
 import (
 	"fmt"
+	"sort"
 
 	"io"
 	"log/slog"
@@ -62,8 +63,55 @@ func (h *httpHoneypot) Start() error {
 		for key, value := range viper.GetStringMap("http.headers") {
 			w.Header().Set(key, value.(string))
 		}
-		fmt.Fprintf(w, "Hello")
+		fmt.Fprintf(w, "404 site not found")
 	})
+
+	mux.HandleFunc("/.env", func(w http.ResponseWriter, r *http.Request) {
+		useragent := split(r.UserAgent())
+		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		sub, _ := utils.NetAddrToIpStr(remoteAddr)
+		body, _ := io.ReadAll(r.Body)
+		mimeType := http.DetectContentType(body)
+		defer r.Body.Close()
+		h.setChan <- types.Set{
+			SUB: sub,
+			ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
+			IAT: time.Now().Unix(),
+			JTI: uuid.New().String(),
+			Events: map[string]map[string]interface{}{
+				HTTPEventID: {
+					"port":         h.port,
+					"method":       r.Method,
+					"accept-lang":  r.Header.Get("Accept-Language"),
+					"user-agent":   useragent,
+					"content-type": mimeType,
+					"body":         string(body),
+					"bodysize":     len(body),
+					"path":         r.URL.Path,
+				},
+			},
+		}
+		// Set the headers to make the honeypot look like an vulnerable server
+		//iterate over the headers and set them
+		for key, value := range viper.GetStringMap("http.headers") {
+			w.Header().Set(key, value.(string))
+		}
+		// return the .env file
+		envMap := viper.GetStringMap("http.env")
+		keys := make([]string, 0, len(envMap))
+		for key := range envMap {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		envString := ""
+		for _, key := range keys {
+			value := envMap[key]
+			envString += fmt.Sprintf("%s=%s\n", strings.ToUpper(key), value)
+		}
+		fmt.Fprint(w, envString)
+	})
+
 	// Handle the form submission
 	mux.HandleFunc("/contact-us/submit", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -104,6 +152,7 @@ func (h *httpHoneypot) Start() error {
 			},
 		}
 	})
+
 	// Set the headers to make the honeypot look like an vulnerable server
 	slog.Info("HTTP Honeypot started", "port", h.port)
 	go func() {
