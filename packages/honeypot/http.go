@@ -1,6 +1,7 @@
 package honeypot
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -64,6 +65,50 @@ func (h *httpHoneypot) Start() error {
 		}
 		fmt.Fprint(w, "Hello, World!")
 	})
+	mux.HandleFunc("/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php", func(w http.ResponseWriter, r *http.Request) {
+		useragent := split(r.UserAgent())
+		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		sub, _ := utils.NetAddrToIpStr(remoteAddr)
+		body, _ := io.ReadAll(r.Body)
+		mimeType := http.DetectContentType(body)
+		defer r.Body.Close()
+		h.setChan <- types.Set{
+			SUB: sub,
+			ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
+			IAT: time.Now().Unix(),
+			JTI: uuid.New().String(),
+			Events: map[string]map[string]interface{}{
+				HTTPEventID: {
+					"port":         h.port,
+					"method":       r.Method,
+					"accept-lang":  r.Header.Get("Accept-Language"),
+					"user-agent":   useragent,
+					"content-type": mimeType,
+					"body":         string(body),
+					"bodysize":     len(body),
+					"path":         r.URL.Path,
+				},
+			},
+		}
+		// Set the headers to make the honeypot look like an vulnerable server
+		//iterate over the headers and set them
+		for key, value := range viper.GetStringMap("http.headers") {
+			w.Header().Set(key, value.(string))
+		}
+		if r.Method == http.MethodGet {
+			response := map[string]interface{}{
+				"status":  "error",
+				"message": "No input provided. Please send PHP code to execute.",
+			}
+			json.NewEncoder(w).Encode(response)
+		} else if r.Method == http.MethodPost || r.Method == http.MethodPut {
+			response := map[string]interface{}{
+				"status":  "error",
+				"message": "Error executing code: syntax error, unexpected end of file",
+			}
+			json.NewEncoder(w).Encode(response)
+		}
+	})
 
 	mux.HandleFunc("/.env", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
@@ -103,7 +148,7 @@ func (h *httpHoneypot) Start() error {
 		}
 		sort.Strings(keys)
 
-		envString := ""
+		envString := "# .env file is outdated as of 2020-02-03 \n"
 		for _, key := range keys {
 			value := envMap[key]
 			envString += fmt.Sprintf("%s=%s\n", strings.ToUpper(key), value)
