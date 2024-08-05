@@ -146,7 +146,7 @@ func (h *httpHoneypot) Start() error {
 		}
 		sort.Strings(keys)
 
-		envString := "# .env file is outdated as of 2020-02-03 \n"
+		envString := "# Outdated as of 2016-02-03 \n"
 		for _, key := range keys {
 			value := envMap[key]
 			envString += fmt.Sprintf("%s=%s\n", strings.ToUpper(key), value)
@@ -160,7 +160,7 @@ func (h *httpHoneypot) Start() error {
 	mux.Handle("/login.php/", http.StripPrefix("/login.php/", loginFileserver))
 
 	// Handle the form submission
-	mux.HandleFunc("/failed-login", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/failed-login.php", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			return
@@ -201,7 +201,6 @@ func (h *httpHoneypot) Start() error {
 		}
 
 		fmt.Fprint(w, "Login failed: Invalid credentials")
-
 	})
 
 	// Set the headers to make the honeypot look like an vulnerable server

@@ -230,7 +230,7 @@ func (p *PostgreSQL) injectionInsert(attackID string, username string, password 
 	VALUES ($1,$2,$3)
 	`, attackID, username, password)
 	if err != nil {
-		slog.Error("Error inserting into the database http_spam", "err", err)
+		slog.Error("Error inserting into the database http_injection", "err", err)
 	}
 }
 
@@ -316,13 +316,13 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 		password TEXT, 
 		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
 	if err != nil {
-		slog.Error("Error creating table http_spam", "err", err)
+		slog.Error("Error creating table http_injection", "err", err)
 	}
 	_, err = p.DB.Exec(ctx, `
-	CREATE INDEX attacklog_timestamp_hpid
+	CREATE INDEX  IF NOT EXISTS attacklog_timestamp_hpid
 	ON attack_log(honeypot_id, TO_TIMESTAMP(time_of_event));`)
 	if err != nil {
-		slog.Error("Error creating table http_spam", "err", err)
+		slog.Error("Error creating index", "err", err)
 	}
 
 	slog.Info("PostgreSQL store started")
