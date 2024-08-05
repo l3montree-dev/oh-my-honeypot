@@ -31,8 +31,6 @@ type HTTPConfig struct {
 
 func (h *httpHoneypot) Start() error {
 	mux := http.NewServeMux()
-	//FileServer to serve static files of hidden ontact form
-
 	mux.HandleFunc("/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
 		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
@@ -65,6 +63,7 @@ func (h *httpHoneypot) Start() error {
 		}
 		fmt.Fprint(w, "Hello, World!")
 	})
+	// Vulnerable PHP endpoint: CVE-2017-9841 (PHPUnit RCE)
 	mux.HandleFunc("/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
 		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
@@ -91,7 +90,6 @@ func (h *httpHoneypot) Start() error {
 			},
 		}
 		// Set the headers to make the honeypot look like an vulnerable server
-		//iterate over the headers and set them
 		for key, value := range viper.GetStringMap("http.headers") {
 			w.Header().Set(key, value.(string))
 		}
