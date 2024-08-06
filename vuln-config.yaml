@@ -1,13 +1,14 @@
 http:
   headers:
-    Content-Type: application/json
-    X-Custom-Header: CustomValue
+    Server: "Apache/2.2.3 (Ubuntu)"
+    X-Powered-By: "PHP/4.1.0"
   env:
-    SSH_USER: rinsalussh
+    SSH_USER: badasshadmin
     SSH_PASSWORD: 7ebo0ERCCwnISSH
     DB_HOST: localhost
-    DB_USER: ensayouria
-    DB_NAME: bankamemdb
+    DB_USER: badadbadmin
+    DB_NAME: customer
     DB_PASSWORD: aYCV6umBuDNHUDB
+    DB_PORT: 5432
 ssh:
   ServerVersion: SSH-2.0-OpenSSH_5.8p2
