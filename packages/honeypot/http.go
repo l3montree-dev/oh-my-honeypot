@@ -98,13 +98,19 @@ func (h *httpHoneypot) Start() error {
 				"status":  "error",
 				"message": "No input provided. Please send PHP code to execute.",
 			}
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+				return
+			}
 		} else if r.Method == http.MethodPost || r.Method == http.MethodPut {
 			response := map[string]interface{}{
 				"status":  "error",
 				"message": "Error executing code: syntax error, unexpected end of file",
 			}
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+				return
+			}
 		}
 	})
 
