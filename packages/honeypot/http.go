@@ -33,9 +33,21 @@ func (h *httpHoneypot) Start() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
-		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
-		sub, _ := utils.NetAddrToIpStr(remoteAddr)
-		body, _ := io.ReadAll(r.Body)
+		remoteAddr, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		if err != nil {
+			slog.Error("Error resolving remote address", "err", err)
+			return
+		}
+		sub, err := utils.NetAddrToIpStr(remoteAddr)
+		if err != nil {
+			slog.Error("Error converting remote address to IP string", "err", err)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			slog.Error("Error reading request body", "err", err)
+			return
+		}
 		mimeType := http.DetectContentType(body)
 
 		defer r.Body.Close()
@@ -68,9 +80,21 @@ func (h *httpHoneypot) Start() error {
 	// Vulnerable PHP endpoint: CVE-2017-9841 (PHPUnit RCE)
 	mux.HandleFunc("/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
-		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
-		sub, _ := utils.NetAddrToIpStr(remoteAddr)
-		body, _ := io.ReadAll(r.Body)
+		remoteAddr, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		if err != nil {
+			slog.Error("Error resolving remote address", "err", err)
+			return
+		}
+		sub, err := utils.NetAddrToIpStr(remoteAddr)
+		if err != nil {
+			slog.Error("Error converting remote address to IP string", "err", err)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			slog.Error("Error reading request body", "err", err)
+			return
+		}
 		mimeType := http.DetectContentType(body)
 		defer r.Body.Close()
 		h.setChan <- types.Set{
@@ -118,11 +142,28 @@ func (h *httpHoneypot) Start() error {
 
 	mux.HandleFunc("/.env", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
-		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
-		sub, _ := utils.NetAddrToIpStr(remoteAddr)
-		body, _ := io.ReadAll(r.Body)
+		remoteAddr, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		if err != nil {
+			slog.Error("Error resolving remote address", "err", err)
+			return
+		}
+		sub, err := utils.NetAddrToIpStr(remoteAddr)
+		if err != nil {
+			slog.Error("Error converting remote address to IP string", "err", err)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			slog.Error("Error reading request body", "err", err)
+			return
+		}
 		mimeType := http.DetectContentType(body)
-		randomPW, _ := password.Generate(16, 4, 4, false, false)
+
+		randomPW, err := password.Generate(16, 4, 4, false, false)
+		if err != nil {
+			slog.Error("Error generating random password", "err", err)
+			return
+		}
 		defer r.Body.Close()
 		h.setChan <- types.Set{
 			SUB: sub,
@@ -189,8 +230,16 @@ func (h *httpHoneypot) Start() error {
 			return
 		}
 		useragent := split(r.UserAgent())
-		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
-		sub, _ := utils.NetAddrToIpStr(remoteAddr)
+		remoteAddr, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		if err != nil {
+			slog.Error("Error resolving remote address", "err", err)
+			return
+		}
+		sub, err := utils.NetAddrToIpStr(remoteAddr)
+		if err != nil {
+			slog.Error("Error converting remote address to IP string", "err", err)
+			return
+		}
 		contentType := r.Header.Get("Content-Type")
 		username := r.FormValue("username")
 		password := r.FormValue("password")
@@ -216,7 +265,6 @@ func (h *httpHoneypot) Start() error {
 				},
 			},
 		}
-
 		fmt.Fprint(w, "Login failed: Invalid credentials")
 	})
 
