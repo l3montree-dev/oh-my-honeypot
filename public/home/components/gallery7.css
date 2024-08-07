@@ -1,0 +1,129 @@
+.gallery7-gallery3 {
+  width: 100%;
+  height: auto;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  align-items: center;
+  flex-shrink: 0;
+  flex-direction: column;
+}
+.gallery7-max-width {
+  gap: var(--dl-space-space-threeunits);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+.gallery7-section-title {
+  gap: 24px;
+  width: auto;
+  border: 2px dashed rgba(120, 120, 120, 0.4);
+  display: flex;
+  max-width: 800px;
+  align-items: center;
+  flex-shrink: 0;
+  flex-direction: column;
+}
+.gallery7-container {
+  gap: var(--dl-space-space-oneandhalfunits);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+}
+.gallery7-content {
+  gap: var(--dl-space-space-oneandhalfunits);
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  flex-shrink: 0;
+  justify-content: center;
+}
+.gallery7-container1 {
+  gap: var(--dl-space-space-oneandhalfunits);
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+}
+.gallery7-image1 {
+  width: 100%;
+  height: 440px;
+  object-fit: cover;
+}
+.gallery7-image2 {
+  width: 100%;
+  height: 440px;
+  object-fit: cover;
+}
+.gallery7-container2 {
+  gap: var(--dl-space-space-oneandhalfunits);
+  flex: 1;
+  width: auto;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+}
+.gallery7-image3 {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+}
+.gallery7-image4 {
+  width: 100%;
+  height: 440px;
+  object-fit: cover;
+}
+.gallery7-image5 {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+}
+.gallery7-container3 {
+  gap: var(--dl-space-space-oneandhalfunits);
+  flex: 1;
+  width: auto;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+}
+.gallery7-image6 {
+  width: 100%;
+  height: 440px;
+  object-fit: cover;
+}
+.gallery7-image7 {
+  width: 100%;
+  height: 440px;
+  object-fit: cover;
+}
+@media(max-width: 991px) {
+  .gallery7-content {
+    align-items: center;
+    flex-direction: column;
+  }
+  .gallery7-container1 {
+    width: 100%;
+  }
+  .gallery7-image1 {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+  .gallery7-container2 {
+    width: 100%;
+  }
+  .gallery7-container3 {
+    width: 100%;
+  }
+}
+@media(max-width: 767px) {
+  .gallery7-section-title {
+    gap: var(--dl-space-space-oneandhalfunits);
+  }
+}

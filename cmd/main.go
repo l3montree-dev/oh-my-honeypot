@@ -33,7 +33,7 @@ func main() {
 	// Load the .env file
 	err = godotenv.Load(".env")
 	if err != nil {
-		slog.Warn("Error loading .env file: %s", err)
+		slog.Warn("Error loading .env file", "err", err)
 	}
 
 	postgresqlDB := store.PostgreSQL{}

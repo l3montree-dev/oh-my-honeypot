@@ -47,7 +47,6 @@ func (s *sshHoneypot) Start() error {
 					},
 				},
 			}
-			slog.Info("Login attempt", "user", c.User(), "pass", string(pass), "ip", c.RemoteAddr())
 			return nil, fmt.Errorf("password rejected for %q", c.User())
 		},
 	}

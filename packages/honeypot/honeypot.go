@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	PortEventID  = "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/port-scanning.json"
-	LoginEventID = "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/ssh-login-attempt.json"
-	HTTPEventID  = "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/http-request.json"
+	PortEventID       = "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/port-scanning.json"
+	LoginEventID      = "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/ssh-login-attempt.json"
+	HTTPEventID       = "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/http-request.json"
+	CredentialEventID = "https://github.com/l3montree-dev/oh-my-honeypot/json-schema/credential-theft.json"
 )
 
 type Honeypot interface {

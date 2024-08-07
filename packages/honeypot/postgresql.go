@@ -68,8 +68,7 @@ func (p *postgresHoneypot) Start() error {
 						// n has to be greater than 0 since we are in the loop
 						if isSSLRequest(msg) {
 							conn.Write([]byte("N")) // nolint
-							conn.Close()
-							return
+							continue
 						} else if isLoginMessage(msg) {
 							username = searchUsername(msg)
 							conn.Write(pwAuthResponse()) // nolint

@@ -1,7 +1,9 @@
 package honeypot
 
 import (
+	"encoding/json"
 	"fmt"
+	"sort"
 
 	"io"
 	"log/slog"
@@ -11,9 +13,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
+	"github.com/sethvargo/go-password/password"
 	"github.com/spf13/viper"
 )
 
@@ -29,14 +31,70 @@ type HTTPConfig struct {
 
 func (h *httpHoneypot) Start() error {
 	mux := http.NewServeMux()
-	//FileServer to serve static files of hidden ontact form
-	fileServer := http.FileServer(http.Dir("./public"))
-	mux.Handle("/contact-us/", http.StripPrefix("/contact-us/", fileServer))
 	mux.HandleFunc("/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		useragent := split(r.UserAgent())
-		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
-		sub, _ := utils.NetAddrToIpStr(remoteAddr)
-		body, _ := io.ReadAll(r.Body)
+		remoteAddr, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		if err != nil {
+			slog.Error("Error resolving remote address", "err", err)
+			return
+		}
+		sub, err := utils.NetAddrToIpStr(remoteAddr)
+		if err != nil {
+			slog.Error("Error converting remote address to IP string", "err", err)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			slog.Error("Error reading request body", "err", err)
+			return
+		}
+		mimeType := http.DetectContentType(body)
+
+		defer r.Body.Close()
+		h.setChan <- types.Set{
+			SUB: sub,
+			ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
+			IAT: time.Now().Unix(),
+			JTI: uuid.New().String(),
+			Events: map[string]map[string]interface{}{
+				HTTPEventID: {
+					"port":         h.port,
+					"method":       r.Method,
+					"accept-lang":  r.Header.Get("Accept-Language"),
+					"user-agent":   useragent,
+					"content-type": mimeType,
+					"body":         string(body),
+					"bodysize":     len(body),
+					"path":         r.URL.Path,
+				},
+			},
+		}
+
+		// Set the headers to make the honeypot look like an vulnerable server
+		//iterate over the headers and set them
+		for key, value := range viper.GetStringMap("http.headers") {
+			w.Header().Set(key, value.(string))
+		}
+		fmt.Fprint(w, "Hello, World!")
+	})
+	// Vulnerable PHP endpoint: CVE-2017-9841 (PHPUnit RCE)
+	mux.HandleFunc("/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php", func(w http.ResponseWriter, r *http.Request) {
+		useragent := split(r.UserAgent())
+		remoteAddr, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		if err != nil {
+			slog.Error("Error resolving remote address", "err", err)
+			return
+		}
+		sub, err := utils.NetAddrToIpStr(remoteAddr)
+		if err != nil {
+			slog.Error("Error converting remote address to IP string", "err", err)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			slog.Error("Error reading request body", "err", err)
+			return
+		}
 		mimeType := http.DetectContentType(body)
 		defer r.Body.Close()
 		h.setChan <- types.Set{
@@ -58,30 +116,133 @@ func (h *httpHoneypot) Start() error {
 			},
 		}
 		// Set the headers to make the honeypot look like an vulnerable server
+		for key, value := range viper.GetStringMap("http.headers") {
+			w.Header().Set(key, value.(string))
+		}
+		if r.Method == http.MethodGet {
+			response := map[string]interface{}{
+				"status":  "error",
+				"message": "No input provided. Please send PHP code to execute.",
+			}
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+				return
+			}
+		} else if r.Method == http.MethodPost || r.Method == http.MethodPut {
+			response := map[string]interface{}{
+				"status":  "error",
+				"message": "Error executing code: syntax error, unexpected end of file",
+			}
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+				return
+			}
+		}
+	})
+
+	mux.HandleFunc("/.env", func(w http.ResponseWriter, r *http.Request) {
+		useragent := split(r.UserAgent())
+		remoteAddr, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		if err != nil {
+			slog.Error("Error resolving remote address", "err", err)
+			return
+		}
+		sub, err := utils.NetAddrToIpStr(remoteAddr)
+		if err != nil {
+			slog.Error("Error converting remote address to IP string", "err", err)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			slog.Error("Error reading request body", "err", err)
+			return
+		}
+		mimeType := http.DetectContentType(body)
+
+		randomPW, err := password.Generate(16, 4, 4, false, false)
+		if err != nil {
+			slog.Error("Error generating random password", "err", err)
+			return
+		}
+		defer r.Body.Close()
+		h.setChan <- types.Set{
+			SUB: sub,
+			ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
+			IAT: time.Now().Unix(),
+			JTI: uuid.New().String(),
+			Events: map[string]map[string]interface{}{
+				HTTPEventID: {
+					"port":         h.port,
+					"method":       r.Method,
+					"accept-lang":  r.Header.Get("Accept-Language"),
+					"user-agent":   useragent,
+					"content-type": mimeType,
+					"body":         string(body),
+					"bodysize":     len(body),
+					"path":         r.URL.Path,
+				},
+				CredentialEventID: {
+					"password": randomPW,
+				},
+			},
+		}
+		// Set the headers to make the honeypot look like an vulnerable server
 		//iterate over the headers and set them
 		for key, value := range viper.GetStringMap("http.headers") {
 			w.Header().Set(key, value.(string))
 		}
-		fmt.Fprintf(w, "Hello")
+		// return the .env file
+		envMap := viper.GetStringMap("http.env")
+		keys := make([]string, 0, len(envMap))
+		for key := range envMap {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		envString := "# Outdated as of 2016-02-03 \n"
+		for _, key := range keys {
+			switch key {
+			case "ssh_password", "db_password":
+				envString += fmt.Sprintf("%s=%s\n", strings.ToUpper(key), randomPW)
+			default:
+				value := envMap[key]
+				envString += fmt.Sprintf("%s=%s\n", strings.ToUpper(key), value)
+			}
+		}
+		fmt.Fprint(w, envString)
 	})
+
+	indexFileserver := http.FileServer(http.Dir("./public/home"))
+	loginFileserver := http.FileServer(http.Dir("./public/login"))
+	mux.Handle("/index.php/", http.StripPrefix("/index.php/", indexFileserver))
+	mux.Handle("/login.php/", http.StripPrefix("/login.php/", loginFileserver))
+
 	// Handle the form submission
-	mux.HandleFunc("/contact-us/submit", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/failed-login.php", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			return
 		}
+
 		err := r.ParseForm()
 		if err != nil {
 			http.Error(w, "Error parsing form", http.StatusBadRequest)
 			return
 		}
 		useragent := split(r.UserAgent())
-		remoteAddr, _ := net.ResolveTCPAddr("tcp", r.RemoteAddr)
-		sub, _ := utils.NetAddrToIpStr(remoteAddr)
+		remoteAddr, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+		if err != nil {
+			slog.Error("Error resolving remote address", "err", err)
+			return
+		}
+		sub, err := utils.NetAddrToIpStr(remoteAddr)
+		if err != nil {
+			slog.Error("Error converting remote address to IP string", "err", err)
+			return
+		}
 		contentType := r.Header.Get("Content-Type")
-		name := r.FormValue("First Name") + " " + r.FormValue("Last Name")
-		email := r.FormValue("E-Mail")
-		body := name + "\n" + email + "\n" + r.FormValue("Message")
+		username := r.FormValue("username")
+		password := r.FormValue("password")
+		body := username + "\n" + password + "\n"
 		h.setChan <- types.Set{
 			SUB: sub,
 			ISS: "github.com/l3montree-dev/oh-my-honeypot/packages/honeypot/http",
@@ -94,16 +255,18 @@ func (h *httpHoneypot) Start() error {
 					"accept-lang":  r.Header.Get("Accept-Language"),
 					"user-agent":   useragent,
 					"content-type": contentType,
+					"path":         r.URL.Path,
 					"body":         body,
 					"bodysize":     len(body),
-					"path":         r.URL.Path,
-					"name":         name,
-					"e-mail":       email,
-					"attack-type":  "Spam",
+					"username":     username,
+					"password":     password,
+					"attack-type":  "injection",
 				},
 			},
 		}
+		fmt.Fprint(w, "Login failed: Invalid credentials")
 	})
+
 	// Set the headers to make the honeypot look like an vulnerable server
 	slog.Info("HTTP Honeypot started", "port", h.port)
 	go func() {

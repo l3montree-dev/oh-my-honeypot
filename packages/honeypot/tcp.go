@@ -12,32 +12,35 @@ import (
 
 func MostUsedTCPPorts() []int {
 	return []int{
-		//Most used TCP 20ports
-		21,    // FTP
-		23,    // Telnet
-		25,    // SMTP
-		53,    // DNS
-		88,    // Kerberos
-		110,   // POP3
-		143,   // IMAP
-		389,   // LDAP
-		465,   // SMTPS
-		546,   // DHCPv6 Client
-		547,   // DHCPv6 Server
-		636,   // LDAPS
-		989,   // FTPS
-		990,   // FTPS
-		993,   // IMAPS
-		995,   // POP3S
-		3306,  // MySQL
-		8001,  // kubernetes dashboard default port
-		6443,  // kubernetes api server
-		2379,  // etcd
-		2380,  // etcd
-		10250, // kubelet
-		10251, // kube-scheduler
-		10252, // kube-controller-manager
-		10255, // kube-proxy
+		//File transfer ports
+		21,  // FTP
+		989, // FTPS
+		990, // FTPS
+		//File sharing ports
+		445, // SMB
+		//Remote access ports
+		23,   // Telnet
+		3389, // RDP
+		5900, // VNC
+		//Email ports
+		25,  // SMTP
+		465, // SMTPS
+		110, // POP3
+		995, // POP3S
+		143, // IMAP
+		993, // IMAPS
+		//Web ports
+		53, // DNS
+		//Security
+		88,  // Kerberos
+		389, // LDAP
+		636, // LDAPS
+		//DHCP
+		546, // DHCPv6 Client
+		547, // DHCPv6 Server
+		//Database ports
+		1433, // MSSQL
+		3306, // MySQL
 	}
 }
 

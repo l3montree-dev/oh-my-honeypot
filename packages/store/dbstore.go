@@ -141,10 +141,10 @@ func (p *PostgreSQL) Listen() chan<- types.Set {
 					//store the payload if the method is POST, PUT or PATCH
 					if method == "POST" || method == "PUT" || method == "PATCH" {
 						payload := httpEvent["body"].(string)
-						if httpEvent["attack-type"] == "Spam" {
-							name := httpEvent["name"].(string)
-							email := httpEvent["e-mail"].(string)
-							defer p.spamInsert(input.JTI, name, email)
+						if httpEvent["attack-type"] == "injection" {
+							username := httpEvent["username"].(string)
+							password := httpEvent["password"].(string)
+							defer p.injectionInsert(input.JTI, username, password)
 						}
 						payloadSize := httpEvent["bodysize"].(int)
 						maxSize := int64(100 * 1024 * 1024)
@@ -161,6 +161,10 @@ func (p *PostgreSQL) Listen() chan<- types.Set {
 						contentType := httpEvent["content-type"].(string)
 						defer p.bodyInsert(input.JTI, contentType, strconv.Itoa(payloadSize)+" bytes")
 
+					}
+					if credentialEvent, ok := input.Events[honeypot.CredentialEventID]; ok {
+						password := credentialEvent["password"].(string)
+						defer p.pwsInsert(input.JTI, password)
 					}
 					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent)
 				}
@@ -222,15 +226,26 @@ func (p *PostgreSQL) bodyInsert(attackID string, contentType string, payloadSize
 	}
 }
 
-func (p *PostgreSQL) spamInsert(attackID string, name string, email string) {
+func (p *PostgreSQL) injectionInsert(attackID string, username string, password string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_, err := p.DB.Exec(ctx, `
-	INSERT INTO http_spam (Attack_ID,name,email)
+	INSERT INTO http_injection (Attack_ID,username,password)
 	VALUES ($1,$2,$3)
-	`, attackID, name, email)
+	`, attackID, username, password)
 	if err != nil {
-		slog.Error("Error inserting into the database http_spam", "err", err)
+		slog.Error("Error inserting into the database http_injection", "err", err)
+	}
+}
+func (p *PostgreSQL) pwsInsert(attackID string, password string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := p.DB.Exec(ctx, `
+	INSERT INTO generated_pws (Attack_ID,password)
+	VALUES ($1,$2)
+	`, attackID, password)
+	if err != nil {
+		slog.Error("Error inserting into the database http_injection", "err", err)
 	}
 }
 
@@ -310,20 +325,27 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 		slog.Error("Error creating table http_body", "err", err)
 	}
 	_, err = p.DB.Exec(ctx, `
-	CREATE TABLE IF NOT EXISTS http_spam (
+	CREATE TABLE IF NOT EXISTS http_injection (
 		Attack_ID TEXT PRIMARY KEY, 
-		name TEXT, 
-		email TEXT, 
-		message_size TEXT, 
+		username TEXT, 
+		password TEXT, 
 		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
 	if err != nil {
-		slog.Error("Error creating table http_spam", "err", err)
+		slog.Error("Error creating table http_injection", "err", err)
 	}
 	_, err = p.DB.Exec(ctx, `
-	CREATE INDEX attacklog_timestamp_hpid
+	CREATE TABLE IF NOT EXISTS generated_pws (
+		Attack_ID TEXT PRIMARY KEY, 
+		password TEXT, 
+		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
+	if err != nil {
+		slog.Error("Error creating table http_injection", "err", err)
+	}
+	_, err = p.DB.Exec(ctx, `
+	CREATE INDEX  IF NOT EXISTS attacklog_timestamp_hpid
 	ON attack_log(honeypot_id, TO_TIMESTAMP(time_of_event));`)
 	if err != nil {
-		slog.Error("Error creating table http_spam", "err", err)
+		slog.Error("Error creating index", "err", err)
 	}
 
 	slog.Info("PostgreSQL store started")

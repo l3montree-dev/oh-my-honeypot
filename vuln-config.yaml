@@ -1,6 +1,0 @@
-http:
-  headers:
-    Server: "Apache/2.2.3 (Ubuntu)"
-    X-Powered-By: "PHP/4.1.0"
-ssh:
-  ServerVersion: "SSH-2.0-OpenSSH_5.8p2"
