@@ -163,9 +163,8 @@ func (p *PostgreSQL) Listen() chan<- types.Set {
 
 					}
 					if credentialEvent, ok := input.Events[honeypot.CredentialEventID]; ok {
-						ssh_password := credentialEvent["ssh_pw"].(string)
-						db_password := credentialEvent["db_pw"].(string)
-						defer p.pwsInsert(input.JTI, ssh_password, db_password)
+						password := credentialEvent["password"].(string)
+						defer p.pwsInsert(input.JTI, password)
 					}
 					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent)
 				}
@@ -238,13 +237,13 @@ func (p *PostgreSQL) injectionInsert(attackID string, username string, password 
 		slog.Error("Error inserting into the database http_injection", "err", err)
 	}
 }
-func (p *PostgreSQL) pwsInsert(attackID string, sshPW string, dbPW string) {
+func (p *PostgreSQL) pwsInsert(attackID string, password string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_, err := p.DB.Exec(ctx, `
-	INSERT INTO generated_pws (Attack_ID,ssh_pw,db_pw)
-	VALUES ($1,$2,$3)
-	`, attackID, sshPW, dbPW)
+	INSERT INTO generated_pws (Attack_ID,password)
+	VALUES ($1,$2)
+	`, attackID, password)
 	if err != nil {
 		slog.Error("Error inserting into the database http_injection", "err", err)
 	}
@@ -337,8 +336,7 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 	_, err = p.DB.Exec(ctx, `
 	CREATE TABLE IF NOT EXISTS generated_pws (
 		Attack_ID TEXT PRIMARY KEY, 
-		ssh_pw TEXT, 
-		db_pw TEXT, 
+		password TEXT, 
 		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
 	if err != nil {
 		slog.Error("Error creating table http_injection", "err", err)

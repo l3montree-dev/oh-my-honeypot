@@ -182,8 +182,7 @@ func (h *httpHoneypot) Start() error {
 					"path":         r.URL.Path,
 				},
 				CredentialEventID: {
-					"ssh_pw": randomPW,
-					"db_pw":  randomPW,
+					"password": randomPW,
 				},
 			},
 		}
