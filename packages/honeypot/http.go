@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
+	"github.com/sethvargo/go-password/password"
 	"github.com/spf13/viper"
 )
 
@@ -37,6 +37,7 @@ func (h *httpHoneypot) Start() error {
 		sub, _ := utils.NetAddrToIpStr(remoteAddr)
 		body, _ := io.ReadAll(r.Body)
 		mimeType := http.DetectContentType(body)
+
 		defer r.Body.Close()
 		h.setChan <- types.Set{
 			SUB: sub,
@@ -56,6 +57,7 @@ func (h *httpHoneypot) Start() error {
 				},
 			},
 		}
+
 		// Set the headers to make the honeypot look like an vulnerable server
 		//iterate over the headers and set them
 		for key, value := range viper.GetStringMap("http.headers") {
@@ -120,6 +122,7 @@ func (h *httpHoneypot) Start() error {
 		sub, _ := utils.NetAddrToIpStr(remoteAddr)
 		body, _ := io.ReadAll(r.Body)
 		mimeType := http.DetectContentType(body)
+		randomPW, _ := password.Generate(16, 4, 4, false, false)
 		defer r.Body.Close()
 		h.setChan <- types.Set{
 			SUB: sub,
@@ -137,6 +140,10 @@ func (h *httpHoneypot) Start() error {
 					"bodysize":     len(body),
 					"path":         r.URL.Path,
 				},
+				CredentialEventID: {
+					"ssh_pw": randomPW,
+					"db_pw":  randomPW,
+				},
 			},
 		}
 		// Set the headers to make the honeypot look like an vulnerable server
@@ -151,11 +158,15 @@ func (h *httpHoneypot) Start() error {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-
 		envString := "# Outdated as of 2016-02-03 \n"
 		for _, key := range keys {
-			value := envMap[key]
-			envString += fmt.Sprintf("%s=%s\n", strings.ToUpper(key), value)
+			switch key {
+			case "ssh_password", "db_password":
+				envString += fmt.Sprintf("%s=%s\n", strings.ToUpper(key), randomPW)
+			default:
+				value := envMap[key]
+				envString += fmt.Sprintf("%s=%s\n", strings.ToUpper(key), value)
+			}
 		}
 		fmt.Fprint(w, envString)
 	})
