@@ -138,6 +138,7 @@ func (p *PostgreSQL) Listen() chan<- types.Set {
 					port = httpEvent["port"].(int)
 					acceptLanguage := httpEvent["accept-lang"].(string)
 					useragent := httpEvent["user-agent"].([]string)
+					referrer := httpEvent["referrer"].(string)
 					//store the payload if the method is POST, PUT or PATCH
 					if method == "POST" || method == "PUT" || method == "PATCH" {
 						payload := httpEvent["body"].(string)
@@ -166,7 +167,7 @@ func (p *PostgreSQL) Listen() chan<- types.Set {
 						password := credentialEvent["password"].(string)
 						defer p.pwsInsert(input.JTI, password)
 					}
-					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent)
+					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent, referrer)
 				}
 				// Insert the basic information about all attacks into the database
 				p.attackInsert(input.JTI, input.HONEYPOT, int(timestamp), port, input.SUB, input.COUNTRY, attackType)
@@ -202,13 +203,13 @@ func (p *PostgreSQL) loginAttemptInsert(attackID string, service string, usernam
 	}
 }
 
-func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acceptLanguage string, useragent []string) {
+func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acceptLanguage string, useragent []string, referrer string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_, err := p.DB.Exec(ctx, `
-	INSERT INTO http_request (Attack_ID,method,path,accept_language,system,rendering_engine,platform)
-	VALUES ($1, $2, $3, $4, $5, $6,$7)
-	`, attackID, method, path, acceptLanguage, useragent[0], useragent[1], useragent[2])
+	INSERT INTO http_request (Attack_ID,method,path,accept_language,system,rendering_engine,platform,referrer)
+	VALUES ($1, $2, $3, $4, $5, $6,$7,$8)
+	`, attackID, method, path, acceptLanguage, useragent[0], useragent[1], useragent[2], referrer)
 	if err != nil {
 		slog.Error("Error inserting into the database http_request", "err", err)
 	}
@@ -310,6 +311,7 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 		system TEXT, 
 		rendering_engine TEXT, 
 		platform TEXT, 
+		referrer TEXT,
 		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID)
 		);`)
 	if err != nil {
