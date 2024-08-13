@@ -146,7 +146,6 @@ func (p *PostgreSQL) Listen() chan<- types.Set {
 							username := httpEvent["username"].(string)
 							password := httpEvent["password"].(string)
 							bot := httpEvent["bot"].(string)
-							slog.Info("login-attempt", "username", username, "password", password, "bot", bot)
 							defer p.injectionInsert(input.JTI, username, password, bot)
 						} else {
 							payloadSize := httpEvent["bodysize"].(int)
