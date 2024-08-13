@@ -138,35 +138,38 @@ func (p *PostgreSQL) Listen() chan<- types.Set {
 					port = httpEvent["port"].(int)
 					acceptLanguage := httpEvent["accept-lang"].(string)
 					useragent := httpEvent["user-agent"].([]string)
+					referrer := httpEvent["referrer"].(string)
 					//store the payload if the method is POST, PUT or PATCH
 					if method == "POST" || method == "PUT" || method == "PATCH" {
 						payload := httpEvent["body"].(string)
-						if httpEvent["attack-type"] == "injection" {
+						if httpEvent["username"] != "" && httpEvent["password"] != "" {
 							username := httpEvent["username"].(string)
 							password := httpEvent["password"].(string)
-							defer p.injectionInsert(input.JTI, username, password)
-						}
-						payloadSize := httpEvent["bodysize"].(int)
-						maxSize := int64(100 * 1024 * 1024)
-						//store the payload if it is less than 100MB
-						if payloadSize < int(maxSize) {
-							attackID := input.JTI
-							if err := savePayload(attackID, payload); err != nil {
-								slog.Warn("could not save payload", "err", err)
-							}
+							bot := httpEvent["bot"].(string)
+							slog.Info("login-attempt", "username", username, "password", password, "bot", bot)
+							defer p.injectionInsert(input.JTI, username, password, bot)
 						} else {
-							slog.Info("Payload size is greater than 100MB")
+							payloadSize := httpEvent["bodysize"].(int)
+							maxSize := int64(100 * 1024 * 1024)
+							//store the payload if it is less than 100MB
+							if payloadSize < int(maxSize) {
+								attackID := input.JTI
+								if err := savePayload(attackID, payload); err != nil {
+									slog.Warn("could not save payload", "err", err)
+								}
+							} else {
+								slog.Info("Payload size is greater than 100MB")
+							}
+							//store the content type and payload size
+							contentType := httpEvent["content-type"].(string)
+							defer p.bodyInsert(input.JTI, contentType, strconv.Itoa(payloadSize)+" bytes")
 						}
-						//store the content type and payload size
-						contentType := httpEvent["content-type"].(string)
-						defer p.bodyInsert(input.JTI, contentType, strconv.Itoa(payloadSize)+" bytes")
-
 					}
-					if credentialEvent, ok := input.Events[honeypot.CredentialEventID]; ok {
-						password := credentialEvent["password"].(string)
-						defer p.pwsInsert(input.JTI, password)
+					if httpEvent["attack-type"] == "credential-theft" {
+						randomPW := httpEvent["randomPW"].(string)
+						defer p.pwsInsert(input.JTI, randomPW)
 					}
-					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent)
+					defer p.httpInsert(input.JTI, method, path, acceptLanguage, useragent, referrer)
 				}
 				// Insert the basic information about all attacks into the database
 				p.attackInsert(input.JTI, input.HONEYPOT, int(timestamp), port, input.SUB, input.COUNTRY, attackType)
@@ -202,13 +205,13 @@ func (p *PostgreSQL) loginAttemptInsert(attackID string, service string, usernam
 	}
 }
 
-func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acceptLanguage string, useragent []string) {
+func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acceptLanguage string, useragent []string, referrer string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_, err := p.DB.Exec(ctx, `
-	INSERT INTO http_request (Attack_ID,method,path,accept_language,system,rendering_engine,platform)
-	VALUES ($1, $2, $3, $4, $5, $6,$7)
-	`, attackID, method, path, acceptLanguage, useragent[0], useragent[1], useragent[2])
+	INSERT INTO http_request (Attack_ID,method,path,accept_language,system,rendering_engine,platform,referrer)
+	VALUES ($1, $2, $3, $4, $5, $6,$7,$8)
+	`, attackID, method, path, acceptLanguage, useragent[0], useragent[1], useragent[2], referrer)
 	if err != nil {
 		slog.Error("Error inserting into the database http_request", "err", err)
 	}
@@ -226,13 +229,13 @@ func (p *PostgreSQL) bodyInsert(attackID string, contentType string, payloadSize
 	}
 }
 
-func (p *PostgreSQL) injectionInsert(attackID string, username string, password string) {
+func (p *PostgreSQL) injectionInsert(attackID string, username string, password string, bot string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_, err := p.DB.Exec(ctx, `
-	INSERT INTO http_injection (Attack_ID,username,password)
-	VALUES ($1,$2,$3)
-	`, attackID, username, password)
+	INSERT INTO http_injection (Attack_ID,username,password,bot)
+	VALUES ($1,$2,$3,$4)
+	`, attackID, username, password, bot)
 	if err != nil {
 		slog.Error("Error inserting into the database http_injection", "err", err)
 	}
@@ -310,6 +313,7 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 		system TEXT, 
 		rendering_engine TEXT, 
 		platform TEXT, 
+		referrer TEXT,
 		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID)
 		);`)
 	if err != nil {
@@ -329,6 +333,7 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 		Attack_ID TEXT PRIMARY KEY, 
 		username TEXT, 
 		password TEXT, 
+		bot TEXT,
 		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
 	if err != nil {
 		slog.Error("Error creating table http_injection", "err", err)
