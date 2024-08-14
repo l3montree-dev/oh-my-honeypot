@@ -337,7 +337,7 @@ func (h *httpHoneypot) Start() error {
 	// HTTP Server
 	go func() {
 		for {
-			err := http.ListenAndServeTLS(":443", h.cert, h.key, mux)
+			err := http.ListenAndServe(":80", mux)
 			if err != nil {
 				slog.Error("Error starting HTTP redirect server", "err", err)
 			}
