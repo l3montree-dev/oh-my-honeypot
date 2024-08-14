@@ -78,17 +78,17 @@ func main() {
 	}
 
 	tcpHoneypot := honeypot.NewTCP(honeypot.MostUsedTCPPorts())
-	udpHoneypot := honeypot.NewUDP(honeypot.MostUsedUDPPorts())
+	// udpHoneypot := honeypot.NewUDP(honeypot.MostUsedUDPPorts())
 
 	err = tcpHoneypot.Start()
 	if err != nil {
 		panic(err)
 	}
 
-	err = udpHoneypot.Start()
-	if err != nil {
-		panic(err)
-	}
+	// err = udpHoneypot.Start()
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	httpTransport := transport.NewHTTP(transport.HTTPConfig{
 		Port: 1112,
@@ -102,11 +102,19 @@ func main() {
 
 	dbIp := dbip.NewIpToCountry("dbip-country.csv")
 	// listen for SET events
-	setChannel := pipeline.Map(pipeline.Merge(sshHoneypot.GetSETChannel(), httpHoneypot.GetSETChannel(), tcpHoneypot.GetSETChannel(), udpHoneypot.GetSETChannel(), postgresHoneypot.GetSETChannel()), func(input types.Set) (types.Set, error) {
-		input.COUNTRY = dbIp.Lookup(net.ParseIP(input.SUB))
-		input.HONEYPOT = string(os.Getenv("HONEYPOT_NAME"))
-		return input, nil
-	})
+	setChannel :=
+		pipeline.Map(
+			pipeline.Merge(
+				sshHoneypot.GetSETChannel(),
+				httpHoneypot.GetSETChannel(),
+				tcpHoneypot.GetSETChannel(),
+				// udpHoneypot.GetSETChannel(),
+				postgresHoneypot.GetSETChannel()),
+			func(input types.Set) (types.Set, error) {
+				input.COUNTRY = dbIp.Lookup(net.ParseIP(input.SUB))
+				input.HONEYPOT = string(os.Getenv("HONEYPOT_NAME"))
+				return input, nil
+			})
 	// save everything, which is send over the setChannel inside the database
 	pipeline.Pipe(setChannel, dbChan)
 	dbSubscription := postgresqlDB.SubscribeToDBChanges()

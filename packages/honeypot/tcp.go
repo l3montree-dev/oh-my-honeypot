@@ -21,26 +21,26 @@ func MostUsedTCPPorts() []int {
 		//Remote access ports
 		23,   // Telnet
 		3389, // RDP
-		5900, // VNC
+		// 5900, // VNC
 		//Email ports
-		25,  // SMTP
-		465, // SMTPS
-		110, // POP3
-		995, // POP3S
-		143, // IMAP
-		993, // IMAPS
+		// 25,  // SMTP
+		// 465, // SMTPS
+		// 110, // POP3
+		// 995, // POP3S
+		// 143, // IMAP
+		// 993, // IMAPS
 		//Web ports
-		53, // DNS
+		// 53, // DNS
 		//Security
-		88,  // Kerberos
-		389, // LDAP
-		636, // LDAPS
+		// 88,  // Kerberos
+		// 389, // LDAP
+		// 636, // LDAPS
 		//DHCP
-		546, // DHCPv6 Client
-		547, // DHCPv6 Server
+		// 546, // DHCPv6 Client
+		// 547, // DHCPv6 Server
 		//Database ports
-		1433, // MSSQL
-		3306, // MySQL
+		// 1433, // MSSQL
+		// 3306, // MySQL
 	}
 }
 
