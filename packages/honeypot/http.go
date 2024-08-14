@@ -3,6 +3,7 @@ package honeypot
 import (
 	"fmt"
 	"io"
+	"log"
 	"sort"
 
 	"log/slog"
@@ -329,6 +330,7 @@ func (h *httpHoneypot) Start() error {
 				envString += fmt.Sprintf("%s=%s\n", strings.ToUpper(key), value)
 			}
 		}
+		w.Header().Set("Content-Type", "text/plain")
 		fmt.Fprint(w, envString)
 	})
 	slog.Info("HTTP Honeypot started", "port", h.port)
@@ -344,7 +346,12 @@ func (h *httpHoneypot) Start() error {
 	// HTTPS server
 	go func() {
 		for {
-			err := http.ListenAndServeTLS(":443", h.cert, h.key, mux)
+			svc := http.Server{
+				Addr:     ":443",
+				Handler:  mux,
+				ErrorLog: log.New(io.Discard, "", 0),
+			}
+			err := svc.ListenAndServeTLS(h.cert, h.key)
 			if err != nil {
 				slog.Error("Error starting HTTPS server", "port", h.port, "err", err)
 			}
