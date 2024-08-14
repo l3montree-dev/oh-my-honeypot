@@ -47,7 +47,7 @@ const headTemplate = `
 	<html lang="en">
 
 	<head>
-    <meta charset="UTF-8">
+    <meta charset="ISO-8859-1">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File share system</title>
     <style>
@@ -71,9 +71,10 @@ const headTemplate = `
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
         }
 
+
         .login-image {
             flex: 1;
-            background: url('https://shorturl.at/cDO9A') no-repeat center center;
+            background: url('https://pixabay.com/get/g39d98e3bf75027101eb8621c5b2eac32b6692207f200072a143eda4bba7bc2d271b33c30597594e646817eb2a1b0187a947b5a1b2e1f8e5921f6db5c6a0f8a1864fede2d97f86ad9494bc66646b019e1_640.png') no-repeat center center;
             background-size: 40%;
             border-top-left-radius: 0px;
             border-bottom-left-radius: 0px;
@@ -132,11 +133,22 @@ const headTemplate = `
         .btn:hover {
             background-color: linear-gradient(to right, #b0b0b0, #c0c0c0);
         }
+		.error-wrapper {
+			padding: 7px;
+			border: 1px solid #ccc;
+			background-color: #f9f9f9;
+			border-radius: 5px;
+			margin-top: 7px;
+			width: 90%;
+            max-width: 350px;
+			
+		}
+
 		.error-message {
-		color: red;
-		margin-top: 10px;
-		font-size: 14px;
-        }
+			color: red;
+			margin-top: 10px;
+			font-size: 14px;
+		}
     </style>
 	</head>
 `
@@ -161,14 +173,14 @@ const loginTemplate = `
 
 	`
 const pagenotfoundTemplate = `
-	<div>
+	<div class="error-wrapper">
 		<h1>404 Not Found</h1>
 		<p>Page not found</p>
 		<p><a href="/index.php">Main page</a></p>
 	</div>
 `
 const notallowedTemplate = `
-	<div>
+	<div class="error-wrapper">
 		<h1>405 Method Not Allowed</h1>
 		<p>Method not allowed</p>
 		<p><a href="/index.php">Main page</a></p>
@@ -238,8 +250,8 @@ func (h *httpHoneypot) Start() error {
 	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		handleRequest(w, r, nil)
 		q := r.URL.Query()
-		defer handleRequest(w, r, nil)
 		if q.Get("page") == "login" && q.Get("param") == "wrongauthentication" {
 			if r.Method != "POST" {
 				htmlContent := fmt.Sprintf(`<!DOCTYPE html>
