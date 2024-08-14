@@ -74,7 +74,7 @@ const headTemplate = `
 
         .login-image {
             flex: 1;
-            background: url('https://pixabay.com/get/g39d98e3bf75027101eb8621c5b2eac32b6692207f200072a143eda4bba7bc2d271b33c30597594e646817eb2a1b0187a947b5a1b2e1f8e5921f6db5c6a0f8a1864fede2d97f86ad9494bc66646b019e1_640.png') no-repeat center center;
+            background: url('https://cdn.pixabay.com/photo/2014/04/03/00/39/server-309012_1280.png') no-repeat center center;
             background-size: 40%;
             border-top-left-radius: 0px;
             border-bottom-left-radius: 0px;
@@ -331,26 +331,22 @@ func (h *httpHoneypot) Start() error {
 		}
 		fmt.Fprint(w, envString)
 	})
-
-	// HTTP to HTTPS redirect
+	slog.Info("HTTP Honeypot started", "port", h.port)
+	// HTTP Server
 	go func() {
-		httpMux := http.NewServeMux()
-		httpMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			target := "https://" + r.Host + r.URL.RequestURI()
-			http.Redirect(w, r, target, http.StatusMovedPermanently)
-		})
-		if err := http.ListenAndServe(":80", httpMux); err != nil {
-			slog.Error("Error starting HTTP redirect server", "err", err)
+		for {
+			err := http.ListenAndServe(":80", mux)
+			if err != nil {
+				slog.Error("Error starting HTTP redirect server", "err", err)
+			}
 		}
 	}()
-	slog.Info("HTTP Honeypot started", "port", h.port)
 	// HTTPS server
 	go func() {
 		for {
 			err := http.ListenAndServeTLS(":443", h.cert, h.key, mux)
 			if err != nil {
 				slog.Error("Error starting HTTPS server", "port", h.port, "err", err)
-				time.Sleep(time.Second) // Avoid tight loop on error
 			}
 		}
 	}()
