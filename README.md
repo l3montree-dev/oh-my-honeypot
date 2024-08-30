@@ -65,21 +65,22 @@ psql -h localhost -p 5432 -U admin -V 'sslmode=disable'
 3. **Storage of HTTP Request Headers:** A table named `http_request` is generated to capture HTTP requests. This table stores the attack ID, HTTP request method, and User-Agent. If an attacker sends an HTTP request via PUT or POST, the request body is saved in the Payload folder, with a maximum size of 100 MB. The associated HTTP body table contains the columns Content-Type and "Payload size". If the request is sent via a hidden contact form, the attacker's email address and name are stored in the `http_spam` table.
 
 ### 6. HTTP Endpoints
-- Provides attack events details and statistics via HTTP endpoints on port `1112`.
+
+Provides attack events details and statistics via HTTP endpoints on port `1112`.
+
 | Path                    | Description                                                                                              |
 | ----------------------- | -------------------------------------------------------------------------------------------------------- |
-| /realtime               | Provides real-time data on ongoing attacks and activities being recorded using Server-Side Events (SSE). |
-| /latest-attacks     | Provides latest attacks of each honeypot                                          |
-| /stats/count-in-24hours | Provides the number of attacks in the last 24 hours measured per hour                                    |
-| /stats/count-in-7days   | Provides the number of attacks in the last 7 days measured per day                                       |
-| /stats/count-in-6months | Provides the number of attacks in the last 6 months measured per month                                   |
-| /stats/country          | Provides statistics on the number of attacks originating from different countries.                       |
-| /stats/ip               | Provides statistics on the number of attacks originating from different IP addresses.                    |
-| /stats/username         | Provides statistics on the usernames used in login attempts.                                             |
-| /stats/password         | Provides statistics on the passwords used in login attempts.                                             |
-| /stats/port             | Provides statistics on the number of attacks per port.                                                   |
-| /stats/path             | Provides statistics on the HTTP paths accessed during attacks.                                           |
-
+| `/realtime`               | Provides real-time data on ongoing attacks and activities being recorded using Server-Side Events (SSE). |
+| `/latest-attacks`         | Provides latest attacks of each honeypot                                                                 |
+| `/stats/count-in-24hours` | Provides the number of attacks in the last 24 hours measured per hour                                    |
+| `/stats/count-in-7days`   | Provides the number of attacks in the last 7 days measured per day                                       |
+| `/stats/count-in-6months` | Provides the number of attacks in the last 6 months measured per month                                   |
+| `/stats/country`          | Provides statistics on the number of attacks originating from different countries.                       |
+| `/stats/ip`               | Provides statistics on the number of attacks originating from different IP addresses.                    |
+| `/stats/username`         | Provides statistics on the usernames used in login attempts.                                             |
+| `/stats/password`         | Provides statistics on the passwords used in login attempts.                                             |
+| `/stats/port`             | Provides statistics on the number of attacks per port.                                                   |
+| `/stats/path`             | Provides statistics on the HTTP paths accessed during attacks.                                           |
 
 ## Installation
 
@@ -100,23 +101,20 @@ cp .env.example .env
 
 5. You can run the honeypot by executing the following command:
 ```bash
-
 go run main.go
-
 ```
 
 6. There is even a Makefile included in the project, so you can simply run:
 ```bash
-
 make
-
 ```
-This starts the honeypot.
 
+This starts the honeypot.
 
 ## Configuration
 
 ### Vulnerability on honeypot
+
 Vulnerabilities of HTTP Honeypot and SSH can be configured as follows:
 ```yaml
 http:
@@ -126,6 +124,7 @@ http:
 ssh:
     ServerVersion: "SSH-2.0-OpenSSH_5.8p2"
 ```
+
 ### DB-IP
 
 The honeypot uses the [DB-IP](https://db-ip.com/) service to determine the geolocation of the IP addresses that interact with it. The db-ip lite database is included in the project and needs to be updated regularly. The link to download the latest version can be found [here](https://db-ip.com/db/download/ip-to-country-lite). The file needs to be extracted and placed in the `root` folder. The file name should be `dbip-country.csv`.

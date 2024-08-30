@@ -1,0 +1,14 @@
+http:
+  headers:
+    Server: "Apache/2.2.3 (Ubuntu)"
+    X-Powered-By: "PHP/4.1.0"
+  env:
+    SSH_USER: ohmyhoneypot
+    SSH_PASSWORD: secret
+    DB_HOST: localhost
+    DB_USER: ohmyhoneypot
+    DB_NAME: ohmyhoneypot
+    DB_PASSWORD: secret
+    DB_PORT: 5432
+ssh:
+  ServerVersion: SSH-2.0-OpenSSH_5.8p2
