@@ -256,8 +256,8 @@ type tracer struct {
 }
 
 func (t tracer) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
-	newCtx := context.WithValue(ctx, "start", time.Now())
-	return context.WithValue(newCtx, "query", data.SQL)
+	newCtx := context.WithValue(ctx, "start", time.Now()) // nolint
+	return context.WithValue(newCtx, "query", data.SQL)   // nolint
 }
 
 func (t tracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
