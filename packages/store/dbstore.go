@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/honeypot"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
@@ -234,6 +235,22 @@ func (p *PostgreSQL) spamInsert(attackID string, name string, email string) {
 	}
 }
 
+type tracer struct {
+}
+
+func (t tracer) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+	newCtx := context.WithValue(ctx, "start", time.Now())
+	return context.WithValue(newCtx, "query", data.SQL)
+}
+
+func (t tracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
+	// if the query takes more than 200ms, log it
+	if time.Since(ctx.Value("start").(time.Time)) > 200*time.Millisecond {
+		slog.Warn("Slow query", "query", time.Since(ctx.Value("start").(time.Time)), "err", data.Err)
+		fmt.Println(ctx.Value("query"))
+	}
+}
+
 // Start initializes the PostgreSQL database connection.
 func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
@@ -251,6 +268,8 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 	dbConfig.MaxConnIdleTime = time.Minute * 30
 	dbConfig.HealthCheckPeriod = time.Minute
 	dbConfig.ConnConfig.ConnectTimeout = time.Second * 5
+
+	dbConfig.ConnConfig.Tracer = &tracer{}
 
 	connPool, err := pgxpool.NewWithConfig(context.Background(), dbConfig)
 
@@ -327,6 +346,9 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 	}
 
 	slog.Info("PostgreSQL store started")
+
+	honeypotIds := p.honeypotIds()
+	slog.Info("Honeypot IDs", "ids", honeypotIds)
 	return nil
 }
 
