@@ -62,22 +62,37 @@ func setDefaultHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 }
 
+func cacheControlMiddleware(maxAge int, staleWhileRevalidateMaxAge int) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Set the Cache-Control header
+			w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d, stale-while-revalidate=%d", maxAge, staleWhileRevalidateMaxAge))
+
+			// Continue with the next handler
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func (h *httpTransport) Listen() {
 	// create a new http server
 	mux := http.NewServeMux()
+	// the response is fresh for 1 hour, it can be served stale for 1 day
+	cachingMiddleware := cacheControlMiddleware(60*60, 60*60*24)
+
 	mux.Handle("GET /realtime", h.handleSSE())
 	mux.Handle("GET /latest-attacks", h.handleLatestAttacks())
-	mux.Handle("GET /stats/count-in-24hours-by-country", h.handleCountIn24HoursByCountry())
-	mux.Handle("GET /stats/count-in-24hours", h.handleCountIn24Hours())
-	mux.Handle("GET /stats/count-in-7days", h.handleCountIn7Days())
-	mux.Handle("GET /stats/count-in-6months", h.handleCountIn6Monts())
-	mux.Handle("GET /stats/country", h.handleCountryStats())
-	mux.Handle("GET /stats/ip", h.handleIPStats())
-	mux.Handle("GET /stats/port", h.handlePortStats())
-	mux.Handle("GET /stats/username", h.handleUsernameStats())
-	mux.Handle("GET /stats/password", h.handlePasswordStats())
-	mux.Handle("GET /stats/path", h.handlePathStats())
-	mux.Handle("GET /health", h.handleHealth())
+	mux.Handle("GET /stats/count-in-24hours-by-country", cachingMiddleware(h.handleCountIn24HoursByCountry()))
+	mux.Handle("GET /stats/count-in-24hours", cachingMiddleware(h.handleCountIn24Hours()))
+	mux.Handle("GET /stats/count-in-7days", cachingMiddleware(h.handleCountIn7Days()))
+	mux.Handle("GET /stats/count-in-6months", cachingMiddleware(h.handleCountIn6Monts()))
+	mux.Handle("GET /stats/country", cachingMiddleware(h.handleCountryStats()))
+	mux.Handle("GET /stats/ip", cachingMiddleware(h.handleIPStats()))
+	mux.Handle("GET /stats/port", cachingMiddleware(h.handlePortStats()))
+	mux.Handle("GET /stats/username", cachingMiddleware(h.handleUsernameStats()))
+	mux.Handle("GET /stats/password", cachingMiddleware(h.handlePasswordStats()))
+	mux.Handle("GET /stats/path", cachingMiddleware(h.handlePathStats()))
+	mux.Handle("GET /health", cachingMiddleware(h.handleHealth()))
 
 	go http.ListenAndServe(":"+fmt.Sprintf("%d", h.port), mux) // nolint
 	slog.Info("HTTP transport listening", "port", h.port)

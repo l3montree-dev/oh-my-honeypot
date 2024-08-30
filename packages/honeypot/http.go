@@ -16,6 +16,7 @@ import (
 	"github.com/l3montree-dev/oh-my-honeypot/packages/types"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/utils"
 	"github.com/sethvargo/go-password/password"
+
 	"github.com/spf13/viper"
 )
 
@@ -353,7 +354,8 @@ func (h *httpHoneypot) Start() error {
 			}
 			err := svc.ListenAndServeTLS(h.cert, h.key)
 			if err != nil {
-				slog.Error("Error starting HTTPS server", "port", h.port, "err", err)
+				slog.Error("Error starting HTTPS server", "port", 443, "err", err)
+				break
 			}
 		}
 	}()

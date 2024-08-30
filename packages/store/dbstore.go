@@ -181,7 +181,7 @@ func (p *PostgreSQL) Listen() chan<- types.Set {
 
 // Insert the attack into the database and sanitize the input by using prepared statements
 func (p *PostgreSQL) attackInsert(attackID string, honeypot_id string, t int, port int, ip string, country string, attackType string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	_, err := p.DB.Exec(ctx, `
@@ -194,7 +194,7 @@ func (p *PostgreSQL) attackInsert(attackID string, honeypot_id string, t int, po
 }
 
 func (p *PostgreSQL) loginAttemptInsert(attackID string, service string, username string, password string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	_, err := p.DB.Exec(ctx, `
 	INSERT INTO login_attempt (Attack_ID,service,Username,Password)
@@ -206,7 +206,7 @@ func (p *PostgreSQL) loginAttemptInsert(attackID string, service string, usernam
 }
 
 func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acceptLanguage string, useragent []string, referrer string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	_, err := p.DB.Exec(ctx, `
 	INSERT INTO http_request (Attack_ID,method,path,accept_language,system,rendering_engine,platform,referrer)
@@ -218,7 +218,7 @@ func (p *PostgreSQL) httpInsert(attackID string, method string, path string, acc
 }
 
 func (p *PostgreSQL) bodyInsert(attackID string, contentType string, payloadSize string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	_, err := p.DB.Exec(ctx, `
 	INSERT INTO http_body (Attack_ID,content_type,payload_size)
@@ -230,7 +230,7 @@ func (p *PostgreSQL) bodyInsert(attackID string, contentType string, payloadSize
 }
 
 func (p *PostgreSQL) injectionInsert(attackID string, username string, password string, bot string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	_, err := p.DB.Exec(ctx, `
 	INSERT INTO http_injection (Attack_ID,username,password,bot)
@@ -241,7 +241,7 @@ func (p *PostgreSQL) injectionInsert(attackID string, username string, password 
 	}
 }
 func (p *PostgreSQL) pwsInsert(attackID string, password string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	_, err := p.DB.Exec(ctx, `
 	INSERT INTO generated_pws (Attack_ID,password)
@@ -407,7 +407,7 @@ func (p *PostgreSQL) GetCountIn24HoursByCountry() types.CountIn24HoursByCountryR
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	for _, honeypotID := range honeypotIDs {
@@ -470,7 +470,7 @@ func (p *PostgreSQL) GetLatestAttacks() types.SetResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	for _, honeypotID := range honeypotIDs {
@@ -542,7 +542,7 @@ func (p *PostgreSQL) GetCountIn24Hours() types.CountIn24HoursStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
@@ -595,7 +595,7 @@ func (p *PostgreSQL) GetCountIn7Days() types.CountIn7DaysStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
@@ -646,7 +646,7 @@ func (p *PostgreSQL) GetCountIn6Months() types.CountIn6MonthsStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
@@ -697,7 +697,7 @@ func (p *PostgreSQL) GetCountryStats() types.CountryStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
@@ -746,7 +746,7 @@ func (p *PostgreSQL) GetIPStats() types.IPStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
@@ -797,7 +797,7 @@ func (p *PostgreSQL) GetUsernameStats() types.UsernameStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
@@ -847,7 +847,7 @@ func (p *PostgreSQL) GetPasswordStats() types.PasswordStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
@@ -897,7 +897,7 @@ func (p *PostgreSQL) GetPortStats() types.PortStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
@@ -946,7 +946,7 @@ func (p *PostgreSQL) GetPathStats() types.PathStatsResponse {
 	wg := errgroup.Group{}
 	wg.SetLimit(10)
 	mut := sync.Mutex{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, honeypotID := range honeypotIDs {
 		wg.Go(func() error {
@@ -1003,7 +1003,7 @@ func (p *PostgreSQL) honeypotIds() []string {
 }
 
 func (p *PostgreSQL) getHoneypotIDs() ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	rows, err := p.DB.Query(
 		ctx,
