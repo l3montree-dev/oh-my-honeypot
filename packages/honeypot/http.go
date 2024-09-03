@@ -1,6 +1,7 @@
 package honeypot
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -202,14 +203,19 @@ func (h *httpHoneypot) Start() error {
 		if err != nil {
 			slog.Error("Error converting remote address to IP string", "err", err)
 		}
+		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			slog.Error("Error reading request body", "err", err)
+		}
+		// Reset the body so it can be read again by ParseForm()
+		r.Body = io.NopCloser(bytes.NewBuffer(body))
+
 		referrer := r.Header.Get("Referer")
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 		bot := r.FormValue("lastname")
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			slog.Error("Error reading request body", "err", err)
-		}
+
 		mimeType := http.DetectContentType(body)
 		return sub, useragent, body, mimeType, referrer, username, password, bot, nil
 	}
