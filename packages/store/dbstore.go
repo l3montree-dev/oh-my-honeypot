@@ -957,7 +957,8 @@ func (p *PostgreSQL) GetPathStats() types.PathStatsResponse {
 		WHERE al.honeypot_id=$1
 		GROUP BY la.path
 		ORDER BY COUNT(la.path)
-		DESC ;
+		DESC
+		LIMIT 10;
     `
 			rows, err := p.DB.Query(ctx, query, honeypotID)
 			if err != nil {
