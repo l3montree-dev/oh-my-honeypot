@@ -179,6 +179,18 @@ func (p *PostgreSQL) Listen() chan<- types.Set {
 	return res
 }
 
+func (p *PostgreSQL) DeleteEverythingBefore(date time.Time) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+	_, err := p.DB.Exec(ctx, `
+	DELETE FROM attack_log
+	WHERE TO_TIMESTAMP(time_of_event) < $1
+	`, date)
+	if err != nil {
+		slog.Error("Error deleting from the database", "err", err)
+	}
+}
+
 // Insert the attack into the database and sanitize the input by using prepared statements
 func (p *PostgreSQL) attackInsert(attackID string, honeypot_id string, t int, port int, ip string, country string, attackType string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -317,7 +329,7 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 		Attack_ID TEXT PRIMARY KEY, 
 		Service TEXT, Username TEXT, 
 		Password TEXT, 
-		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID)
+		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID) ON DELETE CASCADE
 		);`)
 	if err != nil {
 		slog.Error("Error creating table login_attempt", "err", err)
@@ -332,7 +344,7 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 		rendering_engine TEXT, 
 		platform TEXT, 
 		referrer TEXT,
-		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID)
+		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID) ON DELETE CASCADE
 		);`)
 	if err != nil {
 		slog.Error("Error creating table http_request", "err", err)
@@ -342,7 +354,7 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 		Attack_ID TEXT PRIMARY KEY, 
 		content_type TEXT, 
 		payload_size TEXT, 
-		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
+		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID)) ON DELETE CASCADE;`)
 	if err != nil {
 		slog.Error("Error creating table http_body", "err", err)
 	}
@@ -352,7 +364,7 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 		username TEXT, 
 		password TEXT, 
 		bot TEXT,
-		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
+		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID)) ON DELETE CASCADE;`)
 	if err != nil {
 		slog.Error("Error creating table http_injection", "err", err)
 	}
@@ -360,7 +372,7 @@ func (p *PostgreSQL) Start(host, port, user, password, dbname string) error {
 	CREATE TABLE IF NOT EXISTS generated_pws (
 		Attack_ID TEXT PRIMARY KEY, 
 		password TEXT, 
-		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID));`)
+		FOREIGN KEY (Attack_ID) REFERENCES attack_log(Attack_ID)) ON DELETE CASCADE;`)
 	if err != nil {
 		slog.Error("Error creating table http_injection", "err", err)
 	}

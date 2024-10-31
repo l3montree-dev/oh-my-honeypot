@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/l3montree-dev/oh-my-honeypot/packages/dbip"
@@ -47,6 +48,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	// start a cron job to clean the database
+	go func() {
+		slog.Info("Starting cron job to clean the database")
+		postgresqlDB.DeleteEverythingBefore(time.Now().AddDate(0, 0, -14))
+		slog.Info("Cron job finished")
+		time.Sleep(24 * time.Hour)
+	}()
 
 	httpHoneypot := honeypot.NewHTTP(honeypot.HTTPConfig{
 		Port: 80,
