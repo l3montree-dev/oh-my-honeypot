@@ -51,10 +51,12 @@ func main() {
 
 	// start a cron job to clean the database
 	go func() {
-		slog.Info("Starting cron job to clean the database")
-		postgresqlDB.DeleteEverythingBefore(time.Now().AddDate(0, 0, -14))
-		slog.Info("Cron job finished")
-		time.Sleep(24 * time.Hour)
+		ticker := time.NewTicker(5 * time.Minute)
+		for range ticker.C {
+			slog.Info("Starting cron job to clean the database")
+			postgresqlDB.DeleteEverythingBefore(time.Now().AddDate(0, 0, -8))
+			slog.Info("Cron job finished")
+		}
 	}()
 
 	httpHoneypot := honeypot.NewHTTP(honeypot.HTTPConfig{
