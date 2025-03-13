@@ -81,7 +81,7 @@ func (h *httpTransport) Listen() {
 	cachingMiddleware := cacheControlMiddleware(60*60, 60*60*24)
 
 	mux.Handle("GET /realtime", h.handleSSE())
-	mux.Handle("GET /latest-attacks", h.handleLatestAttacks())
+	mux.Handle("GET /latest-attacks", cachingMiddleware(h.handleLatestAttacks()))
 	mux.Handle("GET /stats/count-in-24hours-by-country", cachingMiddleware(h.handleCountIn24HoursByCountry()))
 	mux.Handle("GET /stats/count-in-24hours", cachingMiddleware(h.handleCountIn24Hours()))
 	mux.Handle("GET /stats/count-in-7days", cachingMiddleware(h.handleCountIn7Days()))
